@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.manager
+package com.musheer360.swiftslate.manager
 
 import android.content.Context
 import android.content.SharedPreferences

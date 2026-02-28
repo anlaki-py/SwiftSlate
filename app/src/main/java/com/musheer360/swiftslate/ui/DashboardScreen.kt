@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.ui
+package com.musheer360.swiftslate.ui
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
@@ -18,9 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.musheer360.typeslate.manager.KeyManager
-import com.musheer360.typeslate.ui.components.ScreenTitle
-import com.musheer360.typeslate.ui.components.SlateCard
+import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.ui.components.ScreenTitle
+import com.musheer360.swiftslate.ui.components.SlateCard
 import kotlinx.coroutines.delay
 
 private fun checkServiceEnabled(context: Context): Boolean {

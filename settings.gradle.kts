@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TypeSlate"
+rootProject.name = "SwiftSlate"
 include(":app")

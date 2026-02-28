@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.model
+package com.musheer360.swiftslate.model
 
 data class Command(
     val trigger: String,

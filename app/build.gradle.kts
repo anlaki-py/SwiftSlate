@@ -6,11 +6,11 @@ plugins {
 val baseVersion = "1.0"
 
 android {
-    namespace = "com.musheer360.typeslate"
+    namespace = "com.musheer360.swiftslate"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.musheer360.typeslate"
+        applicationId = "com.musheer360.swiftslate"
         minSdk = 23
         targetSdk = 36
         versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1

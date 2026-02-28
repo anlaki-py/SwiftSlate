@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.ui
+package com.musheer360.swiftslate.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,10 +15,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.musheer360.typeslate.manager.CommandManager
-import com.musheer360.typeslate.model.Command
-import com.musheer360.typeslate.ui.components.ScreenTitle
-import com.musheer360.typeslate.ui.components.SlateCard
+import com.musheer360.swiftslate.manager.CommandManager
+import com.musheer360.swiftslate.model.Command
+import com.musheer360.swiftslate.ui.components.ScreenTitle
+import com.musheer360.swiftslate.ui.components.SlateCard
 
 @Composable
 fun CommandsScreen() {

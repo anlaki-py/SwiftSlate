@@ -1,8 +1,8 @@
-package com.musheer360.typeslate.manager
+package com.musheer360.swiftslate.manager
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.musheer360.typeslate.model.Command
+import com.musheer360.swiftslate.model.Command
 import org.json.JSONArray
 import org.json.JSONObject
 

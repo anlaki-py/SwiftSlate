@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.service
+package com.musheer360.swiftslate.service
 
 import android.accessibilityservice.AccessibilityService
 import android.animation.AnimatorSet
@@ -25,10 +25,10 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import android.widget.Toast
-import com.musheer360.typeslate.api.GeminiClient
-import com.musheer360.typeslate.manager.CommandManager
-import com.musheer360.typeslate.manager.KeyManager
-import com.musheer360.typeslate.model.Command
+import com.musheer360.swiftslate.api.GeminiClient
+import com.musheer360.swiftslate.manager.CommandManager
+import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.model.Command
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -183,7 +183,7 @@ class AssistantService : AccessibilityService() {
                         replaceText(source, originalText)
                         performHapticFeedback(HapticFeedbackConstants.REJECT)
                         if (lastErrorMsg != null) {
-                            showToast("TypeSlate Error: $lastErrorMsg")
+                            showToast("SwiftSlate Error: $lastErrorMsg")
                         } else {
                             val waitMs = keyManager.getShortestWaitTimeMs()
                             if (waitMs != null) {
@@ -208,7 +208,7 @@ class AssistantService : AccessibilityService() {
                 try { replaceText(source, originalText) } catch (_: Exception) {
                     showToast("Could not restore original text")
                 }
-                showToast("TypeSlate Error: ${e.message}")
+                showToast("SwiftSlate Error: ${e.message}")
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
                     spinnerJob?.cancel()
@@ -257,7 +257,7 @@ class AssistantService : AccessibilityService() {
         if (!success) {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val oldClip = clipboard.primaryClip
-            val newClip = ClipData.newPlainText("TypeSlate Result", newText)
+            val newClip = ClipData.newPlainText("SwiftSlate Result", newText)
             clipboard.setPrimaryClip(newClip)
 
             val selectAllArgs = Bundle()

@@ -80,14 +80,14 @@ jobs:
           git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Rename APK
-        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/TypeSlate-${{ steps.version.outputs.tag }}.apk
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/SwiftSlate-${{ steps.version.outputs.tag }}.apk
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          files: app/build/outputs/apk/release/TypeSlate-*.apk
-          name: TypeSlate ${{ steps.version.outputs.tag }}
+          files: app/build/outputs/apk/release/SwiftSlate-*.apk
+          name: SwiftSlate ${{ steps.version.outputs.tag }}
           draft: false
           prerelease: false
         env:

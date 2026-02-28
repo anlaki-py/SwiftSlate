@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.ui.components
+package com.musheer360.swiftslate.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape

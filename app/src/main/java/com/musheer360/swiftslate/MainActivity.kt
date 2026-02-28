@@ -1,4 +1,4 @@
-package com.musheer360.typeslate
+package com.musheer360.swiftslate
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,19 +21,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.musheer360.typeslate.ui.CommandsScreen
-import com.musheer360.typeslate.ui.DashboardScreen
-import com.musheer360.typeslate.ui.KeysScreen
-import com.musheer360.typeslate.ui.SettingsScreen
-import com.musheer360.typeslate.ui.theme.TypeSlateTheme
+import com.musheer360.swiftslate.ui.CommandsScreen
+import com.musheer360.swiftslate.ui.DashboardScreen
+import com.musheer360.swiftslate.ui.KeysScreen
+import com.musheer360.swiftslate.ui.SettingsScreen
+import com.musheer360.swiftslate.ui.theme.SwiftSlateTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            TypeSlateTheme {
-                TypeSlateMainScreen()
+            SwiftSlateTheme {
+                SwiftSlateMainScreen()
             }
         }
     }
@@ -47,7 +47,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 }
 
 @Composable
-fun TypeSlateMainScreen() {
+fun SwiftSlateMainScreen() {
     val navController = rememberNavController()
     val items = listOf(Screen.Dashboard, Screen.Keys, Screen.Commands, Screen.Settings)
     val haptic = LocalHapticFeedback.current

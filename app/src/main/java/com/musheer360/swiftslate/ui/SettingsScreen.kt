@@ -1,4 +1,4 @@
-package com.musheer360.typeslate.ui
+package com.musheer360.swiftslate.ui
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
@@ -11,8 +11,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.musheer360.typeslate.ui.components.ScreenTitle
-import com.musheer360.typeslate.ui.components.SlateCard
+import com.musheer360.swiftslate.ui.components.ScreenTitle
+import com.musheer360.swiftslate.ui.components.SlateCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
