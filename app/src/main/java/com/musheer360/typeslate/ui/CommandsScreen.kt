@@ -71,9 +71,9 @@ fun CommandsScreen() {
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
-            if (errorMessage != null) {
+            errorMessage?.let { msg ->
                 Text(
-                    text = errorMessage!!,
+                    text = msg,
                     color = MaterialTheme.colorScheme.error,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 8.dp)

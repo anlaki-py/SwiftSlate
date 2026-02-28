@@ -41,10 +41,11 @@ fun DashboardScreen() {
 
     // Use the Activity lifecycle so polling only restarts when the app returns
     // from the background, not when switching between navbar tabs.
-    val activity = context as ComponentActivity
+    val activityLifecycle = (context as? ComponentActivity)?.lifecycle
 
-    LaunchedEffect(activity) {
-        activity.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+    LaunchedEffect(activityLifecycle) {
+        val lifecycle = activityLifecycle ?: return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 isServiceEnabled = checkServiceEnabled(context)
                 keyCount = keyManager.getKeys().size
