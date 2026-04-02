@@ -157,3 +157,5 @@ class GeminiClient {
         }
     }
 }
+
+// Fuck Gemini
