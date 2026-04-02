@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -40,6 +42,9 @@ fun SettingsScreen() {
     val commandManager = remember { CommandManager(context) }
     var triggerPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
     var prefixError by remember { mutableStateOf<String?>(null) }
+
+    // Translate settings
+    var translatePrompt by remember { mutableStateOf(commandManager.getTranslatePrompt()) }
 
     Column(
         modifier = Modifier
@@ -255,6 +260,70 @@ fun SettingsScreen() {
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Translate Settings
+        SlateCard {
+            Text(
+                text = "Translate Command",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Use ${triggerPrefix}translate:<lang> to translate text (e.g., ${triggerPrefix}translate:es).",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Translate prompt template
+            Text(
+                text = "Prompt Template",
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Use {lang} as placeholder for language code",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = translatePrompt,
+                onValueChange = {
+                    translatePrompt = it
+                    commandManager.setTranslatePrompt(it)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 100.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    commandManager.resetTranslatePrompt()
+                    translatePrompt = commandManager.getTranslatePrompt()
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.RestartAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Reset to Default")
             }
         }
     }
