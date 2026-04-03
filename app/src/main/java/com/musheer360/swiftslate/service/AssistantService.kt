@@ -6,6 +6,7 @@ import android.animation.ObjectAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -16,6 +17,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -25,12 +27,14 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import android.widget.Toast
+import com.musheer360.swiftslate.SwiftSlateApp
 import com.musheer360.swiftslate.api.GeminiClient
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
+import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.model.Command
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,28 +48,68 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
+/**
+ * AssistantService - Core accessibility service that monitors text input
+ * and processes commands triggered by special prefixes (e.g., ?fix, ?improve).
+ *
+ * This service runs with privileged accessibility permissions and is designed
+ * to survive OS kills through multiple defense layers:
+ * - AccessibilityService gets auto-restarted by Android on crash
+ * - Companion KeepAliveService holds foreground slot for process priority
+ * - CoroutineExceptionHandler provides visibility into unhandled failures
+ * - Proper onDestroy cleanup prevents memory leaks
+ */
 class AssistantService : AccessibilityService() {
 
-    private lateinit var keyManager: KeyManager
-    private lateinit var commandManager: CommandManager
+    // Access singleton managers from Application - ensures consistent state across service restarts
+    private val app: SwiftSlateApp get() = application as SwiftSlateApp
+    private val keyManager get() = app.keyManager
+    private val commandManager get() = app.commandManager
+
+    // API clients for different providers
     private val client = GeminiClient()
     private val openAIClient = OpenAICompatibleClient()
+
+    // Coroutine exception handler - provides visibility into unhandled coroutine failures
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e("AssistantService", "Unhandled coroutine exception", throwable)
+        // Show overlay toast for unexpected errors
+        handler.post {
+            showOverlayToastDirect("Unexpected error: ${throwable.localizedMessage}")
+        }
+    }
+
+    // SupervisorJob allows child coroutines to fail independently
     private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.IO)
+    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.IO + exceptionHandler)
+
+    // Processing state - volatile for thread visibility
     @Volatile
     private var isProcessing = false
+
     private val handler = Handler(Looper.getMainLooper())
+
+    // Trigger detection state
     private var triggerLastChars = setOf<Char>()
     private var cachedPrefix = CommandManager.DEFAULT_PREFIX
+    private var lastTriggerRefresh = 0L
+
+    // Current API request job - can be cancelled
     private var currentJob: Job? = null
+
+    // Undo state - stores original text before last replacement
     @Volatile
     private var lastOriginalText: String? = null
-    private var lastTriggerRefresh = 0L
+
+    // Overlay toast state
     private var currentOverlayToast: View? = null
     private var dismissRunnable: Runnable? = null
     private var dismissAnimator: AnimatorSet? = null
     private var enterAnimator: AnimatorSet? = null
 
+    /**
+     * Converts dp to pixels based on screen density.
+     */
     private fun dp(value: Int): Int {
         val density = resources.displayMetrics.density
         return (value * density + 0.5f).toInt()
@@ -82,13 +126,30 @@ class AssistantService : AccessibilityService() {
         const val TOAST_SLIDE_DISTANCE_DP = 40
     }
 
+    /**
+     * Called when accessibility service is fully connected and ready.
+     * Starts the KeepAliveService companion and initializes triggers.
+     */
     override fun onServiceConnected() {
         super.onServiceConnected()
-        keyManager = KeyManager(applicationContext)
-        commandManager = CommandManager(applicationContext)
+        Log.d("AssistantService", "Service connected")
+
+        // Start the foreground keep-alive companion service
+        val keepAliveIntent = Intent(this, KeepAliveService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(keepAliveIntent)
+        } else {
+            startService(keepAliveIntent)
+        }
+
+        // Initialize triggers from singleton manager
         updateTriggers()
     }
 
+    /**
+     * Refreshes cached trigger prefix and last characters from CommandManager.
+     * Called periodically to pick up setting changes.
+     */
     private fun updateTriggers() {
         cachedPrefix = commandManager.getTriggerPrefix()
         val cmds = commandManager.getCommands()
@@ -96,27 +157,37 @@ class AssistantService : AccessibilityService() {
         lastTriggerRefresh = System.currentTimeMillis()
     }
 
+    /**
+     * Main entry point for accessibility events.
+     * Monitors text changes and triggers command processing.
+     */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED || isProcessing) return
         val source = event.source ?: return
         val text = source.text?.toString() ?: return
         if (text.isEmpty()) return
 
+        // Periodically refresh triggers to pick up settings changes
         if (System.currentTimeMillis() - lastTriggerRefresh > TRIGGER_REFRESH_INTERVAL_MS) {
             updateTriggers()
         }
 
+        // Quick filter: check if last character could be a trigger
         val lastChar = text[text.length - 1]
         if (!triggerLastChars.contains(lastChar)) {
-            if (!lastChar.isLetterOrDigit() || !text.contains("${cachedPrefix}translate:")) {
+            // Special case: translate command uses language code suffix
+            if (!lastChar.isLetterOrDigit() || !text.contains("${cachedPrefix}tr:")) {
                 return
             }
         }
 
+        // Find matching command
         val command = commandManager.findCommand(text) ?: return
 
+        // Extract text before trigger
         val cleanText = text.substring(0, text.length - command.trigger.length).trim()
 
+        // Handle undo command specially
         if (command.trigger.endsWith("undo") && command.isBuiltIn) {
             if (source.isPassword) { return }
             isProcessing = true
@@ -125,6 +196,7 @@ class AssistantService : AccessibilityService() {
             return
         }
 
+        // Skip empty text or password fields
         if (cleanText.isEmpty() || source.isPassword) { return }
 
         isProcessing = true
@@ -132,6 +204,10 @@ class AssistantService : AccessibilityService() {
         processCommand(source, cleanText, command)
     }
 
+    /**
+     * Processes a command by calling the appropriate API and replacing text.
+     * Handles key rotation, rate limits, and error recovery.
+     */
     private fun processCommand(source: AccessibilityNodeInfo, text: String, command: Command) {
         val prefs = applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val providerType = prefs.getString("provider_type", "gemini") ?: "gemini"
@@ -163,14 +239,17 @@ class AssistantService : AccessibilityService() {
                     var lastErrorMsg: String? = null
                     var succeeded = false
 
+                    // Try each available key until one succeeds
                     for (attempt in 0 until maxAttempts) {
                         val key = keyManager.getNextKey()
                         if (key == null) break
 
+                        // Start spinner animation on first attempt
                         if (spinnerJob == null) {
                             spinnerJob = startInlineSpinner(source, originalText)
                         }
 
+                        // Call appropriate API based on provider type
                         val result = if (providerType == "custom") {
                             openAIClient.generate(command.prompt, text, key, model, temperature, endpoint)
                         } else {
@@ -187,13 +266,16 @@ class AssistantService : AccessibilityService() {
                             break
                         }
 
+                        // Handle failure - check if retryable
                         val msg = result.exceptionOrNull()?.message ?: ""
                         lastErrorMsg = msg
                         val isRateLimit = msg.contains("Rate limit") || msg.contains("rate limit")
-                        val isInvalidKey = msg.contains("Invalid API key", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true)
+                        val isInvalidKey = msg.contains("Invalid API key", ignoreCase = true) ||
+                                           msg.contains("API key not valid", ignoreCase = true)
 
                         if (isRateLimit) {
-                            val seconds = Regex("retry after (\\d+)s").find(msg)?.groupValues?.get(1)?.toLongOrNull() ?: 60
+                            val seconds = Regex("retry after (\\d+)s")
+                                .find(msg)?.groupValues?.get(1)?.toLongOrNull() ?: 60
                             keyManager.reportRateLimit(key, seconds)
                         } else if (isInvalidKey) {
                             keyManager.markInvalid(key)
@@ -202,6 +284,7 @@ class AssistantService : AccessibilityService() {
                         }
                     }
 
+                    // Handle failure case
                     if (!succeeded) {
                         spinnerJob?.cancel()
                         spinnerJob = null
@@ -227,7 +310,7 @@ class AssistantService : AccessibilityService() {
                 try { replaceText(source, originalText) } catch (_: Exception) {}
                 showToast("Request timed out")
             } catch (e: CancellationException) {
-                throw e
+                throw e // Don't catch cancellation - let it propagate
             } catch (e: Exception) {
                 spinnerJob?.cancel()
                 try { replaceText(source, originalText) } catch (_: Exception) {
@@ -245,6 +328,9 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Handles the undo command to restore previous text.
+     */
     private fun handleUndo(source: AccessibilityNodeInfo, currentText: String) {
         currentJob = serviceScope.launch {
             try {
@@ -272,13 +358,19 @@ class AssistantService : AccessibilityService() {
         }
     }
 
-    private suspend fun replaceText(source: AccessibilityNodeInfo, newText: String) = withContext(Dispatchers.Main) {
+    /**
+     * Replaces text in the source node using accessibility actions.
+     * Falls back to clipboard paste if direct set text fails.
+     */
+    private suspend fun replaceText(source: AccessibilityNodeInfo, newText: String) =
+        withContext(Dispatchers.Main) {
         source.refresh()
         val bundle = Bundle()
         bundle.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
 
         val success = source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
 
+        // Fallback: use clipboard paste if direct set fails
         if (!success) {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val oldClip = clipboard.primaryClip
@@ -287,11 +379,14 @@ class AssistantService : AccessibilityService() {
 
             val selectAllArgs = Bundle()
             selectAllArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
-            selectAllArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, source.text?.length ?: 0)
+            selectAllArgs.putInt(
+                AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT,
+                source.text?.length ?: 0
+            )
             source.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, selectAllArgs)
-
             source.performAction(AccessibilityNodeInfo.ACTION_PASTE)
 
+            // Restore original clipboard after delay
             handler.postDelayed({
                 if (oldClip != null) {
                     clipboard.setPrimaryClip(oldClip)
@@ -300,6 +395,9 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Sets text directly in a node using accessibility action.
+     */
     private fun setFieldText(source: AccessibilityNodeInfo, text: String) {
         val bundle = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
@@ -307,6 +405,9 @@ class AssistantService : AccessibilityService() {
         source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
     }
 
+    /**
+     * Starts an animated spinner in the text field to indicate processing.
+     */
     private fun startInlineSpinner(source: AccessibilityNodeInfo, baseText: String): Job {
         return serviceScope.launch(Dispatchers.Main) {
             var frameIndex = 0
@@ -318,6 +419,9 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Shows an overlay toast message with animation.
+     */
     private suspend fun showToast(msg: String) = withContext(Dispatchers.Main) {
         dismissOverlayToast()
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -353,10 +457,14 @@ class AssistantService : AccessibilityService() {
             wm.addView(textView, params)
             currentOverlayToast = textView
 
+            // Animate entry
             AnimatorSet().apply {
                 playTogether(
                     ObjectAnimator.ofFloat(textView, View.ALPHA, 0f, 1f),
-                    ObjectAnimator.ofFloat(textView, View.TRANSLATION_Y, dp(TOAST_SLIDE_DISTANCE_DP).toFloat(), 0f)
+                    ObjectAnimator.ofFloat(
+                        textView, View.TRANSLATION_Y,
+                        dp(TOAST_SLIDE_DISTANCE_DP).toFloat(), 0f
+                    )
                 )
                 duration = TOAST_ANIM_DURATION_MS
                 interpolator = DecelerateInterpolator()
@@ -364,6 +472,7 @@ class AssistantService : AccessibilityService() {
                 enterAnimator = this
             }
 
+            // Schedule dismissal
             val runnable = Runnable { dismissOverlayToastAnimated() }
             dismissRunnable = runnable
             handler.postDelayed(runnable, TOAST_DURATION_MS)
@@ -372,6 +481,50 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Shows an overlay toast directly (for exception handler).
+     * Must be called from main thread.
+     */
+    private fun showOverlayToastDirect(msg: String) {
+        dismissOverlayToast()
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        val textView = TextView(applicationContext).apply {
+            text = msg
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            setPadding(dp(24), dp(12), dp(24), dp(12))
+            maxWidth = (resources.displayMetrics.widthPixels * 0.85).toInt()
+            background = GradientDrawable().apply {
+                setColor(TOAST_BACKGROUND_COLOR)
+                cornerRadius = dp(24).toFloat()
+            }
+            gravity = Gravity.CENTER
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = dp(TOAST_BOTTOM_MARGIN_DP)
+        }
+
+        try {
+            wm.addView(textView, params)
+            currentOverlayToast = textView
+            handler.postDelayed({ dismissOverlayToast() }, TOAST_DURATION_MS)
+        } catch (_: Exception) {
+            Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Immediately dismisses the overlay toast without animation.
+     */
     private fun dismissOverlayToast() {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
@@ -389,6 +542,9 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Dismisses the overlay toast with fade-out animation.
+     */
     private fun dismissOverlayToastAnimated() {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
@@ -401,7 +557,10 @@ class AssistantService : AccessibilityService() {
                 dismissAnimator = AnimatorSet().apply {
                     playTogether(
                         ObjectAnimator.ofFloat(view, View.ALPHA, view.alpha, 0f),
-                        ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, view.translationY, dp(TOAST_SLIDE_DISTANCE_DP).toFloat())
+                        ObjectAnimator.ofFloat(
+                            view, View.TRANSLATION_Y,
+                            view.translationY, dp(TOAST_SLIDE_DISTANCE_DP).toFloat()
+                        )
                     )
                     duration = TOAST_ANIM_DURATION_MS
                     interpolator = DecelerateInterpolator()
@@ -419,12 +578,16 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Performs haptic feedback for confirmation or rejection.
+     */
     @Suppress("DEPRECATION")
     private fun performHapticFeedback(feedbackType: Int) {
         handler.post {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                    val vibratorManager =
+                        getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
                     val vibrator = vibratorManager.defaultVibrator
                     when (feedbackType) {
                         HapticFeedbackConstants.CONFIRM ->
@@ -450,14 +613,48 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    /**
+     * Called when the accessibility service is interrupted by the system.
+     */
     override fun onInterrupt() {
+        Log.w("AssistantService", "Service interrupted")
         isProcessing = false
         currentJob?.cancel()
     }
 
+    /**
+     * Cleans up all resources when service is destroyed.
+     * This prevents memory leaks that could cause crashes.
+     */
     override fun onDestroy() {
+        Log.d("AssistantService", "Service destroying - cleaning up resources")
         super.onDestroy()
-        dismissOverlayToast()
+
+        // Cancel all coroutines
         serviceScope.cancel()
+
+        // Cancel current API job
+        currentJob?.cancel()
+        currentJob = null
+
+        // Remove all pending handler callbacks
+        handler.removeCallbacksAndMessages(null)
+
+        // Cancel and clean up animators
+        dismissAnimator?.cancel()
+        enterAnimator?.cancel()
+        dismissAnimator = null
+        enterAnimator = null
+
+        // Remove overlay view from window if still attached
+        try {
+            currentOverlayToast?.let { view ->
+                val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+                windowManager.removeView(view)
+            }
+        } catch (e: Exception) {
+            Log.w("AssistantService", "Error removing overlay on destroy", e)
+        }
+        currentOverlayToast = null
     }
 }

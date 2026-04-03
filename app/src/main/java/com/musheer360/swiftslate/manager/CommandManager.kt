@@ -240,7 +240,7 @@ class CommandManager(context: Context) {
         }
         // Dynamic translate: accept any valid language code
         val prefix = getTriggerPrefix()
-        val translatePrefix = "${prefix}translate:"
+        val translatePrefix = "${prefix}tr:"
         val translateIdx = text.lastIndexOf(translatePrefix)
         if (translateIdx >= 0) {
             val langPart = text.substring(translateIdx + translatePrefix.length)

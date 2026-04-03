@@ -120,7 +120,7 @@ class KeyManager(context: Context) {
     private fun saveKeys(keys: List<String>) {
         val arr = JSONArray(keys)
         val encryptedStr = encrypt(arr.toString())
-        prefs.edit().putString(PREF_KEY_ARRAY, encryptedStr).apply()
+        prefs.edit().putString(PREF_KEY_ARRAY, encryptedStr).commit() // synchronous for critical data
     }
 
     fun addKey(key: String) {

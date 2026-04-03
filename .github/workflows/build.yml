@@ -43,7 +43,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          BASE_VERSION=$(grep 'val baseVersion' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          BASE_VERSION=$(grep "val baseVersion" app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
 
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG="${{ github.ref_name }}"
