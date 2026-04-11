@@ -1,528 +1,372 @@
 package com.musheer360.swiftslate.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.model.Command
+import com.musheer360.swiftslate.model.CommandType
 import com.musheer360.swiftslate.ui.components.ScreenTitle
+import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
+import com.musheer360.swiftslate.ui.components.SlateItemCard
+import com.musheer360.swiftslate.ui.components.SlateTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommandsScreen() {
-    val context = LocalContext.current
+fun CommandsScreen(commandManager: CommandManager) {
     val haptic = LocalHapticFeedback.current
-    val commandManager = remember { CommandManager(context) }
     var commands by remember { mutableStateOf(commandManager.getCommands()) }
-    val prefix = commandManager.getTriggerPrefix()
-
-    // Add command dialog state
-    var showAddDialog by remember { mutableStateOf(false) }
-    var trigger by remember { mutableStateOf("") }
-    var prompt by remember { mutableStateOf("") }
+    val displayCommands = remember(commands) {
+        commands.filter { it.isBuiltIn } + commands.filter { !it.isBuiltIn }
+    }
+    var trigger by rememberSaveable { mutableStateOf("") }
+    var prompt by rememberSaveable { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedType by rememberSaveable { mutableStateOf(CommandType.AI) }
+    var editingTrigger by rememberSaveable { mutableStateOf<String?>(null) }
+    var commandToDelete by remember { mutableStateOf<String?>(null) }
+    var isFormExpanded by rememberSaveable { mutableStateOf(false) }
+    val prefix = commandManager.getTriggerPrefix()
+    val errorPrefixMsg = stringResource(R.string.commands_error_prefix, prefix)
+    val errorDuplicateMsg = stringResource(R.string.commands_error_duplicate)
+    val errorEmptyTrigger = stringResource(R.string.commands_error_empty_trigger)
+    val collapseLabel = stringResource(R.string.commands_collapse)
+    val expandLabel = stringResource(R.string.commands_expand)
 
-    // Edit dialog state
-    var editingCommand by remember { mutableStateOf<Command?>(null) }
-    var editTrigger by remember { mutableStateOf("") }
-    var editPrompt by remember { mutableStateOf("") }
-    var editErrorMessage by remember { mutableStateOf<String?>(null) }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (isFormExpanded) 180f else 0f,
+        animationSpec = tween(250),
+        label = "chevron"
+    )
 
-    // Delete confirmation dialog state
-    var deletingCommand by remember { mutableStateOf<Command?>(null) }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { }
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        ScreenTitle(stringResource(R.string.commands_title))
 
-    // Translate dialog state
-    var showTranslateDialog by remember { mutableStateOf(false) }
-    var translatePrompt by remember { mutableStateOf(commandManager.getTranslatePrompt()) }
-
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showAddDialog = true
-                    trigger = ""
-                    prompt = ""
-                    errorMessage = null
-                },
-                containerColor = MaterialTheme.colorScheme.primary
+        // Collapsible form card
+        SlateCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = null,
+                        indication = null,
+                        onClickLabel = if (isFormExpanded) collapseLabel else expandLabel
+                    ) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isFormExpanded = !isFormExpanded
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Text(
+                    text = stringResource(R.string.commands_add_custom_title),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Command",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(chevronRotation)
                 )
             }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .padding(top = 24.dp)
-                .padding(padding)
-        ) {
-            ScreenTitle("Commands")
 
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 24.dp)
+            AnimatedVisibility(
+                visible = isFormExpanded,
+                enter = expandVertically(
+                    animationSpec = tween(250),
+                    expandFrom = Alignment.Top
+                ) + fadeIn(tween(200, delayMillis = 50)),
+                exit = shrinkVertically(
+                    animationSpec = tween(200),
+                    shrinkTowards = Alignment.Top
+                ) + fadeOut(tween(150))
             ) {
-                // Translate command card (dynamic)
-                item {
-                    SlateCard {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    translatePrompt = commandManager.getTranslatePrompt()
-                                    showTranslateDialog = true
-                                },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Translate,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "${prefix}tr:<lang>",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Translate text to any language (e.g., ${prefix}tr:ar, ${prefix}tr:es)",
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Dynamic",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.tertiary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                items(commands.filter { !it.isDynamic }) { cmd ->
-                    SlateCard {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !cmd.isSystem) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    editingCommand = cmd
-                                    editTrigger = cmd.trigger
-                                    editPrompt = cmd.prompt
-                                    editErrorMessage = null
-                                },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = cmd.trigger,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = cmd.prompt,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (cmd.isSystem) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "System - cannot modify",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                } else if (cmd.isBuiltIn) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Built-in",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.tertiary
-                                    )
-                                }
-                            }
-                            if (!cmd.isSystem) {
-                                IconButton(onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    deletingCommand = cmd
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Command",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Add Command Dialog
-        if (showAddDialog) {
-            AlertDialog(
-                onDismissRequest = { showAddDialog = false },
-                title = { Text("Add Custom Command") },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = trigger,
-                            onValueChange = {
-                                trigger = it
-                                errorMessage = null
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        SegmentedButton(
+                            selected = selectedType == CommandType.AI,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                selectedType = CommandType.AI
                             },
-                            label = { Text("Trigger (e.g., ${prefix}code)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = MaterialTheme.colorScheme.primary,
+                                activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                                activeBorderColor = MaterialTheme.colorScheme.primary,
+                                inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                                inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                inactiveBorderColor = MaterialTheme.colorScheme.outline
                             )
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = prompt,
-                            onValueChange = { prompt = it },
-                            label = { Text("Prompt (must ask for JUST modified text)") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 100.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        ) {
+                            Text(stringResource(R.string.commands_type_ai))
+                        }
+                        SegmentedButton(
+                            selected = selectedType == CommandType.TEXT_REPLACER,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                selectedType = CommandType.TEXT_REPLACER
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = MaterialTheme.colorScheme.primary,
+                                activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                                activeBorderColor = MaterialTheme.colorScheme.primary,
+                                inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                                inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                inactiveBorderColor = MaterialTheme.colorScheme.outline
                             )
-                        )
-                        errorMessage?.let { msg ->
-                            Text(
-                                text = msg,
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
+                        ) {
+                            Text(stringResource(R.string.commands_type_replacer))
                         }
                     }
-                },
-                confirmButton = {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SlateTextField(
+                        value = trigger,
+                        onValueChange = {
+                            trigger = it
+                            errorMessage = null
+                        },
+                        label = { Text(stringResource(R.string.commands_trigger_label, prefix)) },
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = prompt,
+                        onValueChange = { prompt = it; errorMessage = null },
+                        label = { Text(if (selectedType == CommandType.AI) stringResource(R.string.commands_prompt_label) else stringResource(R.string.commands_replacement_label)) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                    errorMessage?.let { msg ->
+                        Text(
+                            text = msg,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (editingTrigger != null) {
+                        TextButton(
+                            onClick = {
+                                trigger = ""
+                                prompt = ""
+                                errorMessage = null
+                                editingTrigger = null
+                                selectedType = CommandType.AI
+                                isFormExpanded = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.commands_cancel))
+                        }
+                    }
                     Button(
                         onClick = {
                             val trimmedTrigger = trigger.trim()
                             if (trimmedTrigger.isNotBlank() && prompt.isNotBlank()) {
                                 if (!trimmedTrigger.startsWith(prefix)) {
-                                    errorMessage = "Trigger must start with '$prefix'"
+                                    errorMessage = errorPrefixMsg
                                     return@Button
                                 }
-                                if (commands.any { it.trigger == trimmedTrigger }) {
-                                    errorMessage = "A command with this trigger already exists"
+                                if (trimmedTrigger == prefix || trimmedTrigger.length <= prefix.length) {
+                                    errorMessage = errorEmptyTrigger
+                                    return@Button
+                                }
+                                if (commands.any { it.trigger == trimmedTrigger && it.trigger != editingTrigger }) {
+                                    errorMessage = errorDuplicateMsg
                                     return@Button
                                 }
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                val newCommand = Command(trimmedTrigger, prompt.trim(), false)
+                                if (editingTrigger != null) {
+                                    commandManager.removeCustomCommand(editingTrigger!!)
+                                }
+                                val newCommand = Command(trimmedTrigger, prompt.trim(), false, selectedType)
                                 commandManager.addCustomCommand(newCommand)
                                 commands = commandManager.getCommands()
-                                showAddDialog = false
+                                trigger = ""
+                                prompt = ""
+                                errorMessage = null
+                                editingTrigger = null
+                                selectedType = CommandType.AI
+                                isFormExpanded = false
                             }
                         },
-                        enabled = trigger.isNotBlank() && prompt.isNotBlank()
+                        enabled = trigger.isNotBlank() && trigger.trim() != prefix && prompt.isNotBlank(),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     ) {
-                        Text("Add")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showAddDialog = false }) {
-                        Text("Cancel")
+                        Text(if (editingTrigger != null) stringResource(R.string.commands_save_command) else stringResource(R.string.commands_add_command))
                     }
                 }
-            )
+            }
         }
 
-        // Edit Dialog
-        editingCommand?.let { cmd ->
-            AlertDialog(
-                onDismissRequest = { editingCommand = null },
-                title = {
-                    Text(
-                        text = when {
-                            cmd.isSystem -> "System Command"
-                            cmd.isBuiltIn -> "Edit Built-in Command"
-                            else -> "Edit Command"
-                        }
-                    )
-                },
-                text = {
-                    Column {
-                        if (!cmd.isSystem) {
-                            OutlinedTextField(
-                                value = editTrigger,
-                                onValueChange = {
-                                    editTrigger = it
-                                    editErrorMessage = null
-                                },
-                                label = { Text("Trigger") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = editPrompt,
-                                onValueChange = { editPrompt = it },
-                                label = { Text("Prompt") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 150.dp, max = 300.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                                )
-                            )
-                        } else {
-                            Text(
-                                text = cmd.trigger,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = cmd.prompt,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "System commands cannot be modified.",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        editErrorMessage?.let { msg ->
-                            Text(
-                                text = msg,
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    Row {
-                        if (cmd.isBuiltIn && !cmd.isSystem) {
-                            TextButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    commandManager.resetBuiltInCommand(cmd.trigger)
-                                    commands = commandManager.getCommands()
-                                    editingCommand = null
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.RestartAlt,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Reset")
-                            }
-                        }
-                        if (!cmd.isSystem) {
-                            Spacer(modifier = Modifier.weight(1f))
-                            Button(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val trimmedTrigger = editTrigger.trim()
+        Spacer(modifier = Modifier.height(20.dp))
 
-                                    if (!trimmedTrigger.startsWith(prefix)) {
-                                        editErrorMessage = "Trigger must start with '$prefix'"
-                                        return@Button
-                                    }
-                                    if (trimmedTrigger != cmd.trigger && commands.any { it.trigger == trimmedTrigger }) {
-                                        editErrorMessage = "A command with this trigger already exists"
-                                        return@Button
-                                    }
-
+        if (displayCommands.isNotEmpty()) {
+            SectionHeader(stringResource(R.string.commands_title))
+            SlateCard {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 4.dp)
+                ) {
+                    itemsIndexed(displayCommands, key = { _, cmd -> cmd.trigger }) { index, cmd ->
+                        SlateItemCard {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = cmd.trigger,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                     if (cmd.isBuiltIn) {
-                                        if (trimmedTrigger != cmd.trigger) {
-                                            commandManager.updateBuiltInTrigger(cmd.trigger, trimmedTrigger)
-                                        }
-                                        commandManager.updateBuiltInCommand(cmd.trigger, editPrompt.trim())
-                                    } else {
-                                        commandManager.removeCustomCommand(cmd.trigger)
-                                        commandManager.addCustomCommand(Command(trimmedTrigger, editPrompt.trim(), false))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = stringResource(R.string.commands_built_in),
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
-                                    commands = commandManager.getCommands()
-                                    editingCommand = null
-                                },
-                                enabled = editPrompt.isNotBlank() && editTrigger.isNotBlank()
-                            ) {
-                                Text("Save")
+                                    if (cmd.type == CommandType.TEXT_REPLACER) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = stringResource(R.string.commands_type_replacer),
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.tertiary
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = cmd.prompt,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (!cmd.isBuiltIn) {
+                                IconButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        trigger = cmd.trigger
+                                        prompt = cmd.prompt
+                                        selectedType = cmd.type
+                                        editingTrigger = cmd.trigger
+                                        errorMessage = null
+                                        isFormExpanded = true
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = stringResource(R.string.commands_edit_command),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        commandToDelete = cmd.trigger
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = stringResource(R.string.commands_delete_command),
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { editingCommand = null }) {
-                        Text(if (cmd.isSystem) "Close" else "Cancel")
-                    }
                 }
-            )
+            }
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
         }
 
-        // Delete Confirmation Dialog
-        deletingCommand?.let { cmd ->
-            AlertDialog(
-                onDismissRequest = { deletingCommand = null },
-                title = { Text("Delete Command?") },
-                text = {
-                    Text("Are you sure you want to delete \"${cmd.trigger}\"?${if (cmd.isBuiltIn) " You can re-enable it later from settings." else ""}")
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (cmd.isBuiltIn) {
-                                commandManager.disableBuiltInCommand(cmd.trigger)
-                            } else {
-                                commandManager.removeCustomCommand(cmd.trigger)
-                            }
-                            commands = commandManager.getCommands()
-                            deletingCommand = null
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text("Delete")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { deletingCommand = null }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
 
-        // Translate Dialog
-        if (showTranslateDialog) {
-            AlertDialog(
-                onDismissRequest = { showTranslateDialog = false },
-                title = { Text("Translate Command") },
-                text = {
-                    Column {
-                        Text(
-                            text = "Usage: ${prefix}tr:<lang>",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Examples: ${prefix}tr:ar, ${prefix}tr:es, ${prefix}tr:fr",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Prompt Template",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Use {lang} as placeholder for language code",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = translatePrompt,
-                            onValueChange = { translatePrompt = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 100.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                            )
-                        )
+    commandToDelete?.let { triggerToDelete ->
+        AlertDialog(
+            onDismissRequest = { commandToDelete = null },
+            title = { Text(stringResource(R.string.delete_confirm_command_title)) },
+            text = { Text(stringResource(R.string.delete_confirm_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    commandManager.removeCustomCommand(triggerToDelete)
+                    if (editingTrigger == triggerToDelete) {
+                        trigger = ""
+                        prompt = ""
+                        errorMessage = null
+                        editingTrigger = null
+                        selectedType = CommandType.AI
+                        isFormExpanded = false
                     }
-                },
-                confirmButton = {
-                    Row {
-                        TextButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                commandManager.resetTranslatePrompt()
-                                translatePrompt = commandManager.getTranslatePrompt()
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.RestartAlt,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Reset")
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Button(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                commandManager.setTranslatePrompt(translatePrompt)
-                                showTranslateDialog = false
-                            }
-                        ) {
-                            Text("Save")
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showTranslateDialog = false }) {
-                        Text("Cancel")
-                    }
+                    commands = commandManager.getCommands()
+                    commandToDelete = null
+                }) {
+                    Text(stringResource(R.string.delete_confirm_button), color = MaterialTheme.colorScheme.error)
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = { commandToDelete = null }) {
+                    Text(stringResource(R.string.commands_cancel))
+                }
+            }
+        )
     }
 }

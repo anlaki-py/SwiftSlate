@@ -1,9 +1,15 @@
 package com.musheer360.swiftslate.model
 
+import androidx.compose.runtime.Immutable
+
+enum class CommandType {
+    AI, TEXT_REPLACER
+}
+
+@Immutable
 data class Command(
     val trigger: String,
     val prompt: String,
     val isBuiltIn: Boolean = false,
-    val isSystem: Boolean = false,  // Cannot be edited or deleted (e.g., undo)
-    val isDynamic: Boolean = false  // Dynamic command like translate
+    val type: CommandType = CommandType.AI
 )

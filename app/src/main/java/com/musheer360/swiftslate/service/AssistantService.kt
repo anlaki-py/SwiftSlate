@@ -6,7 +6,6 @@ import android.animation.ObjectAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -17,7 +16,6 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.util.Log
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -27,14 +25,17 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import android.widget.Toast
-import com.musheer360.swiftslate.SwiftSlateApp
+import com.musheer360.swiftslate.api.ApiError
+import com.musheer360.swiftslate.api.ApiException
 import com.musheer360.swiftslate.api.GeminiClient
+import com.musheer360.swiftslate.api.GenerateResult
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
-import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.model.Command
+import com.musheer360.swiftslate.model.CommandType
+import com.musheer360.swiftslate.model.ProviderType
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,82 +43,64 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
-/**
- * AssistantService - Core accessibility service that monitors text input
- * and processes commands triggered by special prefixes (e.g., ?fix, ?improve).
- *
- * This service runs with privileged accessibility permissions and is designed
- * to survive OS kills through multiple defense layers:
- * - AccessibilityService gets auto-restarted by Android on crash
- * - Companion KeepAliveService holds foreground slot for process priority
- * - CoroutineExceptionHandler provides visibility into unhandled failures
- * - Proper onDestroy cleanup prevents memory leaks
- */
 class AssistantService : AccessibilityService() {
 
-    // Access singleton managers from Application - ensures consistent state across service restarts
-    private val app: SwiftSlateApp get() = application as SwiftSlateApp
-    private val keyManager get() = app.keyManager
-    private val commandManager get() = app.commandManager
-
-    // API clients for different providers
+    private lateinit var keyManager: KeyManager
+    private lateinit var commandManager: CommandManager
     private val client = GeminiClient()
     private val openAIClient = OpenAICompatibleClient()
-
-    // Coroutine exception handler - provides visibility into unhandled coroutine failures
-    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        Log.e("AssistantService", "Unhandled coroutine exception", throwable)
-        // Show overlay toast for unexpected errors
-        handler.post {
-            showOverlayToastDirect("Unexpected error: ${throwable.localizedMessage}")
-        }
-    }
-
-    // SupervisorJob allows child coroutines to fail independently
     private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.IO + exceptionHandler)
-
-    // Processing state - volatile for thread visibility
+    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.IO)
+    private val isProcessing = java.util.concurrent.atomic.AtomicBoolean(false)
     @Volatile
-    private var isProcessing = false
-
+    private var processingStartedAt = 0L
     private val handler = Handler(Looper.getMainLooper())
-
-    // Trigger detection state
     private var triggerLastChars = setOf<Char>()
     private var cachedPrefix = CommandManager.DEFAULT_PREFIX
-    private var lastTriggerRefresh = 0L
-
-    // Current API request job - can be cancelled
+    private var cachedTranslatePrefix = ""
+    @Volatile
     private var currentJob: Job? = null
-
-    // Undo state - stores original text before last replacement
+    private var processingResetRunnable: Runnable? = null
+    // Intentionally single-level undo (toggle between current and previous text).
+    // Tracks the source node's identity to prevent cross-field undo corruption.
     @Volatile
     private var lastOriginalText: String? = null
-
-    // Overlay toast state
+    @Volatile
+    private var lastUndoSourceId: String? = null
+    @Volatile
+    private var lastReplacedText: String? = null
+    @Volatile
+    private var lastReplacedAt = 0L
+    @Volatile
+    private var lastReplacedSource: AccessibilityNodeInfo? = null
+    private var verifyRunnable: Runnable? = null
+    private var lastTriggerRefresh = 0L
     private var currentOverlayToast: View? = null
     private var dismissRunnable: Runnable? = null
+    private var watchdogRunnable: Runnable? = null
     private var dismissAnimator: AnimatorSet? = null
     private var enterAnimator: AnimatorSet? = null
 
-    /**
-     * Converts dp to pixels based on screen density.
-     */
     private fun dp(value: Int): Int {
         val density = resources.displayMetrics.density
         return (value * density + 0.5f).toInt()
     }
 
+    private fun sourceId(source: AccessibilityNodeInfo): String =
+        "${source.windowId}:${source.viewIdResourceName ?: source.hashCode()}"
+
     private companion object {
         const val TRIGGER_REFRESH_INTERVAL_MS = 5_000L
         const val DEFAULT_TEMPERATURE = 0.5
+        const val PROCESSING_WATCHDOG_MS = 120_000L
         val SPINNER_FRAMES = arrayOf("◐", "◓", "◑", "◒")
         const val TOAST_BACKGROUND_COLOR = 0xE6323232.toInt()
         const val TOAST_DURATION_MS = 3500L
@@ -126,111 +109,218 @@ class AssistantService : AccessibilityService() {
         const val TOAST_SLIDE_DISTANCE_DP = 40
     }
 
-    /**
-     * Called when accessibility service is fully connected and ready.
-     * Starts the KeepAliveService companion and initializes triggers.
-     */
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d("AssistantService", "Service connected")
-
-        // Start the foreground keep-alive companion service
-        val keepAliveIntent = Intent(this, KeepAliveService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(keepAliveIntent)
-        } else {
-            startService(keepAliveIntent)
-        }
-
-        // Initialize triggers from singleton manager
+        keyManager = KeyManager(applicationContext)
+        commandManager = CommandManager(applicationContext)
         updateTriggers()
     }
 
-    /**
-     * Refreshes cached trigger prefix and last characters from CommandManager.
-     * Called periodically to pick up setting changes.
-     */
     private fun updateTriggers() {
         cachedPrefix = commandManager.getTriggerPrefix()
+        cachedTranslatePrefix = "${cachedPrefix}translate:"
         val cmds = commandManager.getCommands()
         triggerLastChars = cmds.mapNotNull { it.trigger.lastOrNull() }.toSet()
         lastTriggerRefresh = System.currentTimeMillis()
     }
 
-    /**
-     * Main entry point for accessibility events.
-     * Monitors text changes and triggers command processing.
-     */
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED || isProcessing) return
-        val source = event.source ?: return
-        val text = source.text?.toString() ?: return
-        if (text.isEmpty()) return
+    private fun startWatchdog() {
+        watchdogRunnable?.let { handler.removeCallbacks(it) }
+        val runnable = Runnable {
+            if (isProcessing.get()) {
+                currentJob?.cancel()
+                isProcessing.set(false)
+                processingStartedAt = 0L
+            }
+        }
+        watchdogRunnable = runnable
+        handler.postDelayed(runnable, PROCESSING_WATCHDOG_MS)
+    }
 
-        // Periodically refresh triggers to pick up settings changes
+    private fun cancelWatchdog() {
+        watchdogRunnable?.let { handler.removeCallbacks(it) }
+        watchdogRunnable = null
+    }
+
+    private fun cancelPendingProcessingReset() {
+        processingResetRunnable?.let { handler.removeCallbacks(it) }
+        processingResetRunnable = null
+    }
+
+    private fun scheduleProcessingReset() {
+        cancelPendingProcessingReset()
+        val runnable = Runnable { isProcessing.set(false) }
+        processingResetRunnable = runnable
+        if (!handler.postDelayed(runnable, 500)) {
+            isProcessing.set(false)
+        }
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
+        if (event.packageName?.toString() == packageName) return
+
+        if (isProcessing.get()) return
+        val source = event.source ?: return
+        if (source.isPassword) {
+            source.recycle()
+            return
+        }
+        val text = source.text?.toString() ?: run {
+            source.recycle()
+            return
+        }
+        if (text.isEmpty()) {
+            verifyRunnable?.let { handler.removeCallbacks(it) }
+            lastReplacedText = null
+            val prev = lastReplacedSource
+            lastReplacedSource = null
+            if (prev != null && prev !== source) {
+                try { prev.recycle() } catch (_: Exception) {}
+            }
+            source.recycle()
+            return
+        }
+
+        // Skip events where text matches what we just replaced (prevents IME re-commit race)
+        val replaced = lastReplacedText
+        if (replaced != null && text == replaced &&
+            System.currentTimeMillis() - lastReplacedAt < 1000) {
+            source.recycle()
+            return
+        }
+
         if (System.currentTimeMillis() - lastTriggerRefresh > TRIGGER_REFRESH_INTERVAL_MS) {
             updateTriggers()
         }
 
-        // Quick filter: check if last character could be a trigger
         val lastChar = text[text.length - 1]
         if (!triggerLastChars.contains(lastChar)) {
-            // Special case: translate command uses language code suffix
-            if (!lastChar.isLetterOrDigit() || !text.contains("${cachedPrefix}tr:")) {
+            if (!lastChar.isLetterOrDigit() || !text.contains(cachedTranslatePrefix)) {
+                source.recycle()
                 return
             }
         }
 
-        // Find matching command
-        val command = commandManager.findCommand(text) ?: return
+        val command = commandManager.findCommand(text) ?: run {
+            source.recycle()
+            return
+        }
 
-        // Extract text before trigger
-        val cleanText = text.substring(0, text.length - command.trigger.length).trim()
+        val precedingText = text.substring(0, text.length - command.trigger.length)
+        val cleanText = precedingText.trim()
 
-        // Handle undo command specially
         if (command.trigger.endsWith("undo") && command.isBuiltIn) {
-            if (source.isPassword) { return }
-            isProcessing = true
+            if (!isProcessing.compareAndSet(false, true)) {
+                source.recycle()
+                return
+            }
+            processingStartedAt = System.currentTimeMillis()
+            startWatchdog()
+            cancelPendingProcessingReset()
             currentJob?.cancel()
             handleUndo(source, cleanText)
             return
         }
 
-        // Skip empty text or password fields
-        if (cleanText.isEmpty() || source.isPassword) { return }
-
-        isProcessing = true
-        currentJob?.cancel()
-        processCommand(source, cleanText, command)
+        when (command.type) {
+            CommandType.TEXT_REPLACER -> {
+                if (!isProcessing.compareAndSet(false, true)) {
+                    source.recycle()
+                    return
+                }
+                processingStartedAt = System.currentTimeMillis()
+                startWatchdog()
+                cancelPendingProcessingReset()
+                currentJob?.cancel()
+                currentJob = serviceScope.launch {
+                    val thisJob = coroutineContext[Job]
+                    try {
+                        withContext(Dispatchers.Main) {
+                            lastOriginalText = precedingText
+                            lastUndoSourceId = sourceId(source)
+                            replaceText(source, precedingText + command.prompt)
+                            performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            showToast("Could not replace text")
+                        }
+                    } finally {
+                        withContext(NonCancellable + Dispatchers.Main) {
+                            if (currentJob === thisJob) {
+                                cancelWatchdog()
+                                processingStartedAt = 0L
+                                scheduleProcessingReset()
+                            }
+                            recycleIfUnowned(source)
+                        }
+                    }
+                }
+            }
+            CommandType.AI -> {
+                if (cleanText.isEmpty()) {
+                    source.recycle()
+                    return
+                }
+                if (!isProcessing.compareAndSet(false, true)) {
+                    source.recycle()
+                    return
+                }
+                processingStartedAt = System.currentTimeMillis()
+                startWatchdog()
+                cancelPendingProcessingReset()
+                currentJob?.cancel()
+                processCommand(source, cleanText, command)
+            }
+        }
     }
 
-    /**
-     * Processes a command by calling the appropriate API and replacing text.
-     * Handles key rotation, rate limits, and error recovery.
-     */
     private fun processCommand(source: AccessibilityNodeInfo, text: String, command: Command) {
-        val prefs = applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val providerType = prefs.getString("provider_type", "gemini") ?: "gemini"
-        val model: String
-        val endpoint: String
-
-        if (providerType == "custom") {
-            model = prefs.getString("custom_model", "") ?: ""
-            endpoint = prefs.getString("custom_endpoint", "") ?: ""
-            if (model.isBlank() || endpoint.isBlank()) {
-                serviceScope.launch {
-                    showToast("Custom provider not configured. Set endpoint and model in Settings.")
-                }
-                isProcessing = false
-                return
-            }
-        } else {
-            model = prefs.getString("model", "gemini-2.5-flash-lite") ?: "gemini-2.5-flash-lite"
-            endpoint = ""
+        if (!keyManager.keystoreAvailable) {
+            handler.post { Toast.makeText(applicationContext, "Secure key storage unavailable. Please reinstall the app.", Toast.LENGTH_LONG).show() }
+            cancelWatchdog()
+            processingStartedAt = 0L
+            isProcessing.set(false)
+            recycleIfUnowned(source)
+            return
         }
-        val temperature = DEFAULT_TEMPERATURE
 
         currentJob = serviceScope.launch {
+            val thisJob = coroutineContext[Job]
+            val prefs = applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val providerType = prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
+            val model: String
+            val endpoint: String
+
+            if (providerType == ProviderType.CUSTOM) {
+                model = prefs.getString("custom_model", "") ?: ""
+                endpoint = prefs.getString("custom_endpoint", "") ?: ""
+                if (model.isBlank() || endpoint.isBlank()) {
+                    showToast("Custom provider not configured. Set endpoint and model in Settings.")
+                    withContext(NonCancellable + Dispatchers.Main) {
+                        cancelWatchdog()
+                        processingStartedAt = 0L
+                        scheduleProcessingReset()
+                        recycleIfUnowned(source)
+                    }
+                    return@launch
+                }
+            } else if (providerType == ProviderType.GROQ) {
+                model = prefs.getString("groq_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
+                endpoint = "https://api.groq.com/openai/v1"
+            } else {
+                model = prefs.getString("model", "gemini-2.5-flash-lite") ?: "gemini-2.5-flash-lite"
+                endpoint = ""
+            }
+            val temperature = DEFAULT_TEMPERATURE
+            val useStructuredOutput = run {
+                val disabledAt = prefs.getLong("structured_output_disabled_at", 0L)
+                System.currentTimeMillis() - disabledAt > 86_400_000L // re-try after 24h
+            }
+
             val originalText = text
             var spinnerJob: Job? = null
             try {
@@ -239,59 +329,61 @@ class AssistantService : AccessibilityService() {
                     var lastErrorMsg: String? = null
                     var succeeded = false
 
-                    // Try each available key until one succeeds
                     for (attempt in 0 until maxAttempts) {
                         val key = keyManager.getNextKey()
                         if (key == null) break
 
-                        // Start spinner animation on first attempt
                         if (spinnerJob == null) {
                             spinnerJob = startInlineSpinner(source, originalText)
                         }
 
-                        // Call appropriate API based on provider type
-                        val result = if (providerType == "custom") {
-                            openAIClient.generate(command.prompt, text, key, model, temperature, endpoint)
+                        val isGroq = providerType == ProviderType.GROQ
+                        val result = if (isGroq || providerType == ProviderType.CUSTOM) {
+                            openAIClient.generate(command.prompt, text, key, model, temperature, endpoint,
+                                useStructuredOutput = false,
+                                useJsonObjectMode = isGroq && useStructuredOutput)
                         } else {
-                            client.generate(command.prompt, text, key, model, temperature)
+                            client.generate(command.prompt, text, key, model, temperature, useStructuredOutput)
                         }
 
                         if (result.isSuccess) {
-                            spinnerJob?.cancel()
+                            spinnerJob?.cancelAndJoin()
                             spinnerJob = null
                             lastOriginalText = originalText
-                            replaceText(source, result.getOrThrow())
+                            lastUndoSourceId = sourceId(source)
+                            val generateResult = result.getOrThrow()
+                            replaceText(source, generateResult.text)
                             performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                            if (generateResult.structuredOutputFailed) {
+                                prefs.edit().putLong("structured_output_disabled_at", System.currentTimeMillis()).apply()
+                            }
                             succeeded = true
                             break
                         }
 
-                        // Handle failure - check if retryable
                         val msg = result.exceptionOrNull()?.message ?: ""
                         lastErrorMsg = msg
-                        val isRateLimit = msg.contains("Rate limit") || msg.contains("rate limit")
-                        val isInvalidKey = msg.contains("Invalid API key", ignoreCase = true) ||
-                                           msg.contains("API key not valid", ignoreCase = true)
+                        val apiError = (result.exceptionOrNull() as? ApiException)?.apiError
 
-                        if (isRateLimit) {
-                            val seconds = Regex("retry after (\\d+)s")
-                                .find(msg)?.groupValues?.get(1)?.toLongOrNull() ?: 60
-                            keyManager.reportRateLimit(key, seconds)
-                        } else if (isInvalidKey) {
-                            keyManager.markInvalid(key)
-                        } else {
-                            break // Non-retryable error, stop trying other keys
+                        when (apiError) {
+                            is ApiError.RateLimit -> {
+                                val seconds = apiError.retryAfterSeconds?.toLong() ?: 60
+                                keyManager.reportRateLimit(key, seconds)
+                            }
+                            is ApiError.InvalidKey -> {
+                                keyManager.markInvalid(key)
+                            }
+                            else -> break // Non-retryable error, stop trying other keys
                         }
                     }
 
-                    // Handle failure case
                     if (!succeeded) {
-                        spinnerJob?.cancel()
+                        spinnerJob?.cancelAndJoin()
                         spinnerJob = null
                         replaceText(source, originalText)
                         performHapticFeedback(HapticFeedbackConstants.REJECT)
                         if (lastErrorMsg != null) {
-                            showToast("SwiftSlate Error: $lastErrorMsg")
+                            showToast(mapErrorMessage(lastErrorMsg))
                         } else {
                             val waitMs = keyManager.getShortestWaitTimeMs()
                             if (waitMs != null) {
@@ -306,37 +398,42 @@ class AssistantService : AccessibilityService() {
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                spinnerJob?.cancel()
+                spinnerJob?.cancelAndJoin()
                 try { replaceText(source, originalText) } catch (_: Exception) {}
                 showToast("Request timed out")
             } catch (e: CancellationException) {
-                throw e // Don't catch cancellation - let it propagate
+                withContext(NonCancellable + Dispatchers.Main) {
+                    spinnerJob?.cancel()
+                    try { replaceText(source, originalText) } catch (_: Exception) {}
+                }
+                throw e
             } catch (e: Exception) {
-                spinnerJob?.cancel()
+                spinnerJob?.cancelAndJoin()
                 try { replaceText(source, originalText) } catch (_: Exception) {
                     showToast("Could not restore original text")
                 }
-                showToast("SwiftSlate Error: ${e.message}")
+                showToast(mapErrorMessage(e.message ?: "Unknown error"))
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
-                    spinnerJob?.cancel()
-                    if (!handler.postDelayed({ isProcessing = false }, 500)) {
-                        isProcessing = false
+                    if (currentJob === thisJob) {
+                        cancelWatchdog()
+                        processingStartedAt = 0L
+                        scheduleProcessingReset()
                     }
+                    spinnerJob?.cancel()
+                    recycleIfUnowned(source)
                 }
             }
         }
     }
 
-    /**
-     * Handles the undo command to restore previous text.
-     */
     private fun handleUndo(source: AccessibilityNodeInfo, currentText: String) {
         currentJob = serviceScope.launch {
+            val thisJob = coroutineContext[Job]
             try {
                 val previousText = lastOriginalText
-                if (previousText == null) {
-                    replaceText(source, currentText)
+                val undoId = lastUndoSourceId
+                if (previousText == null || undoId != sourceId(source)) {
                     performHapticFeedback(HapticFeedbackConstants.REJECT)
                     showToast("Nothing to undo")
                 } else {
@@ -350,78 +447,172 @@ class AssistantService : AccessibilityService() {
                 showToast("Could not undo")
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
-                    if (!handler.postDelayed({ isProcessing = false }, 500)) {
-                        isProcessing = false
+                    if (currentJob === thisJob) {
+                        cancelWatchdog()
+                        processingStartedAt = 0L
+                        scheduleProcessingReset()
                     }
+                    recycleIfUnowned(source)
                 }
             }
         }
     }
 
-    /**
-     * Replaces text in the source node using accessibility actions.
-     * Falls back to clipboard paste if direct set text fails.
-     */
-    private suspend fun replaceText(source: AccessibilityNodeInfo, newText: String) =
-        withContext(Dispatchers.Main) {
-        source.refresh()
+    private suspend fun replaceText(source: AccessibilityNodeInfo, newText: String) = withContext(Dispatchers.Main) {
+        if (!source.refresh()) return@withContext
         val bundle = Bundle()
         bundle.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
 
         val success = source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
 
-        // Fallback: use clipboard paste if direct set fails
-        if (!success) {
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val oldClip = clipboard.primaryClip
-            val newClip = ClipData.newPlainText("SwiftSlate Result", newText)
-            clipboard.setPrimaryClip(newClip)
+        if (success) {
+            // Verify the text actually persisted — some apps (Firefox, Google Keep)
+            // return true but don't update their internal text state
+            delay(100)
+            source.refresh()
+            val currentText = source.text?.toString()
+            if (currentText == newText) {
+                scheduleTextVerification(source, newText)
+                return@withContext // Text persisted
+            }
+            // Text didn't persist, fall through to clipboard fallback
+        }
 
-            val selectAllArgs = Bundle()
-            selectAllArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
-            selectAllArgs.putInt(
-                AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT,
-                source.text?.length ?: 0
-            )
-            source.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, selectAllArgs)
-            source.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        // Clipboard fallback: select all + paste (goes through app's input pipeline)
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val oldClip = clipboard.primaryClip
+        val newClip = ClipData.newPlainText("SwiftSlate Result", newText)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            newClip.description.extras = android.os.PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
+            }
+        }
+        clipboard.setPrimaryClip(newClip)
 
-            // Restore original clipboard after delay
-            handler.postDelayed({
-                if (oldClip != null) {
-                    clipboard.setPrimaryClip(oldClip)
+        source.refresh()
+        if (source.text == null) return@withContext
+        val selectAllArgs = Bundle()
+        selectAllArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
+        selectAllArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, source.text?.length ?: 0)
+        source.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, selectAllArgs)
+
+        source.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+
+        scheduleTextVerification(source, newText)
+
+        handler.postDelayed({
+            try {
+                source.refresh()
+                val fieldText = source.text?.toString()
+                if (fieldText == newText) {
+                    val current = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                    if (current == newText) {
+                        if (oldClip != null) {
+                            clipboard.setPrimaryClip(oldClip)
+                        } else {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+                        }
+                    }
                 }
-            }, 500)
+            } catch (_: Exception) {}
+        }, 500)
+    }
+
+    /** Recycle source only if scheduleTextVerification didn't take ownership. */
+    private fun recycleIfUnowned(source: AccessibilityNodeInfo) {
+        if (lastReplacedSource !== source) {
+            try { source.recycle() } catch (_: Exception) {}
         }
     }
 
-    /**
-     * Sets text directly in a node using accessibility action.
-     */
-    private fun setFieldText(source: AccessibilityNodeInfo, text: String) {
+    private fun scheduleTextVerification(source: AccessibilityNodeInfo, expectedText: String) {
+        lastReplacedText = expectedText
+        lastReplacedAt = System.currentTimeMillis()
+        // Recycle the previous source if it's a different node
+        val prev = lastReplacedSource
+        if (prev != null && prev !== source) {
+            try { prev.recycle() } catch (_: Exception) {}
+        }
+        lastReplacedSource = source
+        verifyRunnable?.let { handler.removeCallbacks(it) }
+        val capturedSource = source
+        val runnable = Runnable {
+            try {
+                if (!capturedSource.refresh()) return@Runnable
+                val currentText = capturedSource.text?.toString()
+                val isImeClobber = currentText != null && currentText.isNotEmpty() && expectedText.startsWith(currentText)
+                if (isImeClobber && currentText != expectedText && currentText!!.length < expectedText.length) {
+                    val bundle = Bundle().apply {
+                        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, expectedText)
+                    }
+                    capturedSource.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
+                }
+            } catch (_: Exception) {
+            } finally {
+                // Only recycle if this source is still the current one (not replaced by a newer command)
+                if (lastReplacedSource === capturedSource) {
+                    lastReplacedText = null
+                    try { capturedSource.recycle() } catch (_: Exception) {}
+                    lastReplacedSource = null
+                }
+            }
+        }
+        verifyRunnable = runnable
+        if (!handler.postDelayed(runnable, 300)) {
+            lastReplacedText = null
+            lastReplacedAt = 0L
+            lastReplacedSource = null
+        }
+    }
+
+    private fun setFieldText(source: AccessibilityNodeInfo, text: String): Boolean {
+        if (!source.refresh()) return false
         val bundle = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
-        source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
+        return source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
     }
 
-    /**
-     * Starts an animated spinner in the text field to indicate processing.
-     */
     private fun startInlineSpinner(source: AccessibilityNodeInfo, baseText: String): Job {
         return serviceScope.launch(Dispatchers.Main) {
             var frameIndex = 0
             while (isActive) {
-                setFieldText(source, "$baseText ${SPINNER_FRAMES[frameIndex]}")
+                if (!setFieldText(source, "$baseText ${SPINNER_FRAMES[frameIndex]}")) break
                 frameIndex = (frameIndex + 1) % SPINNER_FRAMES.size
                 delay(200)
             }
         }
     }
 
-    /**
-     * Shows an overlay toast message with animation.
-     */
+    private fun mapErrorMessage(raw: String): String {
+        val lower = raw.lowercase()
+        return when {
+            lower.contains("permission_denied") || lower.contains("permission denied") ->
+                "Your API key doesn't have access to this model."
+            lower.contains("invalid api key") || lower.contains("api key not valid") || lower.contains("api_key_invalid") ->
+                "Invalid API key. Please check your key in Settings."
+            lower.contains("rate limit") || lower.contains("resource_exhausted") || lower.contains("quota") ->
+                "Rate limited. Try again shortly."
+            lower.contains("model not found") || lower.contains("model_not_found") || lower.contains("not found for api version") ->
+                "Model not found. Check your model selection in Settings."
+            lower.contains("safety") || lower.contains("content_filter") || lower.contains("recitation") ||
+                lower.contains("blocked by safety") || lower.contains("finish_reason: safety") ->
+                "Response blocked by safety filters. Try rephrasing."
+            lower.contains("empty response") || lower.contains("no content found") || lower.contains("no choices found") ->
+                "Model returned an empty response. Try again."
+            lower.contains("timeout") || lower.contains("timed out") ->
+                "Request timed out. Check your connection."
+            lower.contains("unable to resolve host") || lower.contains("no address associated") ||
+                lower.contains("network is unreachable") || lower.contains("no route to host") ->
+                "No internet connection."
+            lower.contains("connection refused") || lower.contains("connect failed") ->
+                "Could not reach the API. Check your endpoint URL."
+            lower.contains("bad request") ->
+                "Request failed. Check your settings."
+            else -> raw
+        }
+    }
+
     private suspend fun showToast(msg: String) = withContext(Dispatchers.Main) {
         dismissOverlayToast()
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -457,14 +648,10 @@ class AssistantService : AccessibilityService() {
             wm.addView(textView, params)
             currentOverlayToast = textView
 
-            // Animate entry
             AnimatorSet().apply {
                 playTogether(
                     ObjectAnimator.ofFloat(textView, View.ALPHA, 0f, 1f),
-                    ObjectAnimator.ofFloat(
-                        textView, View.TRANSLATION_Y,
-                        dp(TOAST_SLIDE_DISTANCE_DP).toFloat(), 0f
-                    )
+                    ObjectAnimator.ofFloat(textView, View.TRANSLATION_Y, dp(TOAST_SLIDE_DISTANCE_DP).toFloat(), 0f)
                 )
                 duration = TOAST_ANIM_DURATION_MS
                 interpolator = DecelerateInterpolator()
@@ -472,7 +659,6 @@ class AssistantService : AccessibilityService() {
                 enterAnimator = this
             }
 
-            // Schedule dismissal
             val runnable = Runnable { dismissOverlayToastAnimated() }
             dismissRunnable = runnable
             handler.postDelayed(runnable, TOAST_DURATION_MS)
@@ -481,50 +667,6 @@ class AssistantService : AccessibilityService() {
         }
     }
 
-    /**
-     * Shows an overlay toast directly (for exception handler).
-     * Must be called from main thread.
-     */
-    private fun showOverlayToastDirect(msg: String) {
-        dismissOverlayToast()
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-
-        val textView = TextView(applicationContext).apply {
-            text = msg
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            setPadding(dp(24), dp(12), dp(24), dp(12))
-            maxWidth = (resources.displayMetrics.widthPixels * 0.85).toInt()
-            background = GradientDrawable().apply {
-                setColor(TOAST_BACKGROUND_COLOR)
-                cornerRadius = dp(24).toFloat()
-            }
-            gravity = Gravity.CENTER
-        }
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = dp(TOAST_BOTTOM_MARGIN_DP)
-        }
-
-        try {
-            wm.addView(textView, params)
-            currentOverlayToast = textView
-            handler.postDelayed({ dismissOverlayToast() }, TOAST_DURATION_MS)
-        } catch (_: Exception) {
-            Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /**
-     * Immediately dismisses the overlay toast without animation.
-     */
     private fun dismissOverlayToast() {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
@@ -542,9 +684,6 @@ class AssistantService : AccessibilityService() {
         }
     }
 
-    /**
-     * Dismisses the overlay toast with fade-out animation.
-     */
     private fun dismissOverlayToastAnimated() {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
@@ -557,10 +696,7 @@ class AssistantService : AccessibilityService() {
                 dismissAnimator = AnimatorSet().apply {
                     playTogether(
                         ObjectAnimator.ofFloat(view, View.ALPHA, view.alpha, 0f),
-                        ObjectAnimator.ofFloat(
-                            view, View.TRANSLATION_Y,
-                            view.translationY, dp(TOAST_SLIDE_DISTANCE_DP).toFloat()
-                        )
+                        ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, view.translationY, dp(TOAST_SLIDE_DISTANCE_DP).toFloat())
                     )
                     duration = TOAST_ANIM_DURATION_MS
                     interpolator = DecelerateInterpolator()
@@ -578,16 +714,12 @@ class AssistantService : AccessibilityService() {
         }
     }
 
-    /**
-     * Performs haptic feedback for confirmation or rejection.
-     */
     @Suppress("DEPRECATION")
     private fun performHapticFeedback(feedbackType: Int) {
         handler.post {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val vibratorManager =
-                        getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                    val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
                     val vibrator = vibratorManager.defaultVibrator
                     when (feedbackType) {
                         HapticFeedbackConstants.CONFIRM ->
@@ -613,48 +745,28 @@ class AssistantService : AccessibilityService() {
         }
     }
 
-    /**
-     * Called when the accessibility service is interrupted by the system.
-     */
     override fun onInterrupt() {
-        Log.w("AssistantService", "Service interrupted")
-        isProcessing = false
+        isProcessing.set(false)
+        processingStartedAt = 0L
         currentJob?.cancel()
+        serviceJob.cancelChildren()
+        handler.removeCallbacksAndMessages(null)
+        lastReplacedText = null
+        lastReplacedAt = 0L
+        try { lastReplacedSource?.recycle() } catch (_: Exception) {}
+        lastReplacedSource = null
+        dismissOverlayToast()
     }
 
-    /**
-     * Cleans up all resources when service is destroyed.
-     * This prevents memory leaks that could cause crashes.
-     */
     override fun onDestroy() {
-        Log.d("AssistantService", "Service destroying - cleaning up resources")
         super.onDestroy()
-
-        // Cancel all coroutines
-        serviceScope.cancel()
-
-        // Cancel current API job
-        currentJob?.cancel()
-        currentJob = null
-
-        // Remove all pending handler callbacks
+        isProcessing.set(false)
+        lastReplacedText = null
+        lastReplacedAt = 0L
+        try { lastReplacedSource?.recycle() } catch (_: Exception) {}
+        lastReplacedSource = null
         handler.removeCallbacksAndMessages(null)
-
-        // Cancel and clean up animators
-        dismissAnimator?.cancel()
-        enterAnimator?.cancel()
-        dismissAnimator = null
-        enterAnimator = null
-
-        // Remove overlay view from window if still attached
-        try {
-            currentOverlayToast?.let { view ->
-                val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-                windowManager.removeView(view)
-            }
-        } catch (e: Exception) {
-            Log.w("AssistantService", "Error removing overlay on destroy", e)
-        }
-        currentOverlayToast = null
+        dismissOverlayToast()
+        serviceScope.cancel()
     }
 }

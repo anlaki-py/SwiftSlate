@@ -23,11 +23,19 @@ class KeyManager(context: Context) {
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_SEPARATOR = "]"
         private const val PREF_KEY_ARRAY = "keys_array"
+        private const val CACHE_TTL_MS = 5_000L
     }
 
-    private val rateLimitedKeys = mutableMapOf<String, Long>()
-    private val invalidKeys = mutableSetOf<String>()
+    private val rateLimitedKeys = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val invalidKeys: MutableSet<String> = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
     private val roundRobinIndex = AtomicInteger(0)
+    @Volatile
+    private var cachedKeys: List<String>? = null
+    @Volatile
+    private var cacheTimestamp = 0L
+    @Volatile
+    var keystoreAvailable: Boolean = true
+        private set
 
     init {
         try {
@@ -47,7 +55,8 @@ class KeyManager(context: Context) {
                 keyGenerator.generateKey()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("KeyManager", "Keystore init failed", e)
+            keystoreAvailable = false
         }
     }
 
@@ -57,89 +66,117 @@ class KeyManager(context: Context) {
             keyStore.load(null)
             keyStore.getKey(KEY_ALIAS, null) as? SecretKey
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("KeyManager", "Failed to get secret key", e)
             null
         }
     }
 
     private fun encrypt(plainText: String): String {
-        return try {
-            val secretKey = getSecretKey() ?: return plainText // Fallback to plain text if keystore fails
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-            val iv = cipher.iv
-            val cipherText = cipher.doFinal(plainText.toByteArray(StandardCharsets.UTF_8))
-            val ivString = Base64.encodeToString(iv, Base64.NO_WRAP)
-            val cipherTextString = Base64.encodeToString(cipherText, Base64.NO_WRAP)
-            "$ivString$IV_SEPARATOR$cipherTextString"
-        } catch (e: Exception) {
-            e.printStackTrace()
-            plainText // Fallback
-        }
+        val secretKey = getSecretKey()
+            ?: throw IllegalStateException("Keystore unavailable")
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+        val iv = cipher.iv
+        val cipherText = cipher.doFinal(plainText.toByteArray(StandardCharsets.UTF_8))
+        val ivString = Base64.encodeToString(iv, Base64.NO_WRAP)
+        val cipherTextString = Base64.encodeToString(cipherText, Base64.NO_WRAP)
+        return "$ivString$IV_SEPARATOR$cipherTextString"
     }
 
-    private fun decrypt(encryptedString: String): String {
+    private fun decrypt(encryptedString: String): String? {
+        if (!encryptedString.contains(IV_SEPARATOR)) {
+            return null // corrupted or legacy plaintext — no longer supported
+        }
+        val parts = encryptedString.split(IV_SEPARATOR)
+        if (parts.size != 2) return null
         return try {
-            if (!encryptedString.contains(IV_SEPARATOR)) {
-                return encryptedString // Assume it's plain text fallback or unencrypted legacy data
-            }
-            val parts = encryptedString.split(IV_SEPARATOR)
-            if (parts.size != 2) return encryptedString
-            
             val iv = Base64.decode(parts[0], Base64.NO_WRAP)
             val cipherText = Base64.decode(parts[1], Base64.NO_WRAP)
-
-            val secretKey = getSecretKey() ?: return encryptedString
+            val secretKey = getSecretKey() ?: return null
             val cipher = Cipher.getInstance(TRANSFORMATION)
             val spec = GCMParameterSpec(128, iv)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-            
             val plainTextBytes = cipher.doFinal(cipherText)
             String(plainTextBytes, StandardCharsets.UTF_8)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            "[]" // Fallback to empty array on decryption failure
+        } catch (_: Exception) {
+            null
         }
     }
 
+    private fun JSONArray.toStringList(): List<String> =
+        (0 until length()).map { getString(it) }
+
+    @Synchronized
     fun getKeys(): List<String> {
+        val now = System.currentTimeMillis()
+        val cached = cachedKeys
+        if (cached != null && now - cacheTimestamp < CACHE_TTL_MS) return cached
         val encryptedStr = prefs.getString(PREF_KEY_ARRAY, null) ?: return emptyList()
-        val jsonStr = decrypt(encryptedStr)
-        val list = mutableListOf<String>()
-        try {
-            val arr = JSONArray(jsonStr)
-            for (i in 0 until arr.length()) {
-                list.add(arr.getString(i))
+        // Legacy plaintext migration — can be removed once all users are on v1.3+
+        if (!encryptedStr.contains(IV_SEPARATOR)) {
+            return try {
+                val encrypted = encrypt(encryptedStr)
+                prefs.edit().putString(PREF_KEY_ARRAY, encrypted).commit()
+                val jsonStr = decrypt(encrypted) ?: return emptyList()
+                val list = JSONArray(jsonStr).toStringList()
+                cachedKeys = list
+                cacheTimestamp = System.currentTimeMillis()
+                list
+            } catch (_: Exception) {
+                // Encryption failed (e.g. keystore invalidated) — return plaintext keys so user doesn't lose access
+                try { JSONArray(encryptedStr).toStringList() } catch (_: Exception) { emptyList() }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
+        val jsonStr = decrypt(encryptedStr) ?: run {
+            cachedKeys = emptyList()
+            cacheTimestamp = System.currentTimeMillis()
+            return emptyList()
+        }
+        val list = try { JSONArray(jsonStr).toStringList() } catch (_: Exception) { emptyList() }
+        cachedKeys = list
+        cacheTimestamp = System.currentTimeMillis()
         return list
     }
 
-    private fun saveKeys(keys: List<String>) {
+    @Synchronized
+    private fun saveKeys(keys: List<String>): Boolean {
         val arr = JSONArray(keys)
-        val encryptedStr = encrypt(arr.toString())
-        prefs.edit().putString(PREF_KEY_ARRAY, encryptedStr).commit() // synchronous for critical data
+        return try {
+            prefs.edit().putString(PREF_KEY_ARRAY, encrypt(arr.toString())).apply()
+            cachedKeys = keys
+            cacheTimestamp = System.currentTimeMillis()
+            true
+        } catch (_: Exception) {
+            cachedKeys = null
+            cacheTimestamp = 0L
+            false
+        }
     }
 
-    fun addKey(key: String) {
+    @Synchronized
+    fun addKey(key: String): Boolean {
         val keys = getKeys().toMutableList()
         if (!keys.contains(key)) {
             keys.add(key)
-            saveKeys(keys)
+            if (!saveKeys(keys)) return false
         }
         invalidKeys.remove(key)
+        return true
     }
 
-    fun removeKey(key: String) {
+    @Synchronized
+    fun removeKey(key: String): Boolean {
         val keys = getKeys().toMutableList()
         keys.remove(key)
-        saveKeys(keys)
+        val saved = saveKeys(keys)
         rateLimitedKeys.remove(key)
         invalidKeys.remove(key)
+        return saved
     }
 
+    // All @Synchronized methods use `this` as monitor (reentrant).
+    // getNextKey() intentionally calls getKeys() while holding the lock.
+    @Synchronized
     fun getNextKey(): String? {
         val keys = getKeys()
         if (keys.isEmpty()) return null
