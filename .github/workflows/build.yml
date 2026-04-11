@@ -163,13 +163,22 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
           gradle-home-cache-cleanup: true
 
-      - name: Decode signing keystore
+      - name: Generate signing keystore
         shell: bash
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/release.keystore
-          chmod 600 ${{ github.workspace }}/release.keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASSWORD="SwiftSlate$(echo -n '${{ github.repository }}' | sha256sum | cut -c1-16)"
+          keytool -genkeypair -v \
+            -keystore ${{ github.workspace }}/release.keystore \
+            -alias release \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "$KS_PASSWORD" \
+            -keypass "$KS_PASSWORD" \
+            -dname "CN=SwiftSlate,O=SwiftSlate,C=US" \
+            -storetype JKS
+          echo "KEYSTORE_PASSWORD=$KS_PASSWORD" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=release" >> "$GITHUB_ENV"
 
       - name: Build Release APK
         shell: bash
@@ -185,9 +194,9 @@ jobs:
           exit $result
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
 
       - name: Cleanup keystore
         if: always()
