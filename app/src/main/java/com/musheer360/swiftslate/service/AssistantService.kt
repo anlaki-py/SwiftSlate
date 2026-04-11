@@ -770,3 +770,4 @@ class AssistantService : AccessibilityService() {
         serviceScope.cancel()
     }
 }
+
