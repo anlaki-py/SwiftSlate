@@ -10,7 +10,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.musheer360.swiftslate"
+        applicationId = "swiftslate.anlaki.dev"
         minSdk = 23
         targetSdk = 36
         versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
