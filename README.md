@@ -1,6 +1,8 @@
+# SwiftSlate 
+**SwiftSlate is a free, open-source system-wide AI text assistant for Android.**
+**This is a fork of the original [Musheer360/SwiftSlate](https://github.com/Musheer360/SwiftSlate).**
 
-SwiftSlate is a free, open-source system-wide AI text assistant for Android.
-This is a fork of the original [Musheer360/SwiftSlate](https://github.com/Musheer360/SwiftSlate).
+---
 
 ## How It Works
 
