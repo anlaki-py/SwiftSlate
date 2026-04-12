@@ -19,6 +19,7 @@ class CommandManagerTest {
         // Clear prefs to ensure clean state
         context.getSharedPreferences("commands", 0).edit().clear().commit()
         context.getSharedPreferences("settings", 0).edit().clear().commit()
+        context.getSharedPreferences("command_overrides", 0).edit().clear().commit()
         commandManager = CommandManager(context)
     }
 
@@ -89,7 +90,7 @@ class CommandManagerTest {
     @Test
     fun getCommands_returnsNineBuiltInByDefault() {
         val commands = commandManager.getCommands()
-        assertEquals(9, commands.size)
+        assertEquals(10, commands.size)
     }
 
     @Test
@@ -102,7 +103,7 @@ class CommandManagerTest {
     fun getCommands_afterAddingCustom_includesIt() {
         commandManager.addCustomCommand(Command("?myCmd", "do something"))
         val commands = commandManager.getCommands()
-        assertEquals(10, commands.size)
+        assertEquals(11, commands.size)
         assertTrue(commands.any { it.trigger == "?myCmd" })
     }
 

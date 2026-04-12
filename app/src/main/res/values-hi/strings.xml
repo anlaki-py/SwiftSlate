@@ -44,6 +44,14 @@
     <string name="commands_error_prefix">ट्रिगर \'%1$s\' से शुरू होना चाहिए</string>
     <string name="commands_error_duplicate">इस ट्रिगर वाला कमांड पहले से मौजूद है</string>
     <string name="commands_error_empty_trigger">प्रीफ़िक्स के बाद ट्रिगर का नाम होना चाहिए</string>
+    <string name="commands_modified">संशोधित</string>
+    <string name="commands_edit_title">कमांड संपादित करें</string>
+    <string name="commands_reset_command">डिफ़ॉल्ट पर रीसेट करें</string>
+    <string name="commands_reset_confirm_title">इस कमांड को रीसेट करें?</string>
+    <string name="commands_reset_confirm_message">मूल बिल्ट-इन कमांड पुनर्स्थापित किया जाएगा।</string>
+    <string name="commands_translate_hint">टाइप करते समय :&lt;lang&gt; जोड़ें (जैसे, %1$s:fr)</string>
+    <string name="commands_deleted_section">हटाए गए</string>
+    <string name="commands_restore_command">पुनर्स्थापित करें</string>
 
     <!-- Settings -->
     <string name="settings_title">सेटिंग्स</string>

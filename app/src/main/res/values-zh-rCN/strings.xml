@@ -44,6 +44,14 @@
     <string name="commands_error_prefix">触发词必须以 \'%1$s\' 开头</string>
     <string name="commands_error_duplicate">已存在使用此触发词的命令</string>
     <string name="commands_error_empty_trigger">前缀后必须有触发词名称</string>
+    <string name="commands_modified">已修改</string>
+    <string name="commands_edit_title">编辑命令</string>
+    <string name="commands_reset_command">恢复默认</string>
+    <string name="commands_reset_confirm_title">重置此命令？</string>
+    <string name="commands_reset_confirm_message">将恢复原始内置命令。</string>
+    <string name="commands_translate_hint">输入时附加 :&lt;lang&gt;（例如 %1$s:fr）</string>
+    <string name="commands_deleted_section">已删除</string>
+    <string name="commands_restore_command">恢复</string>
 
     <!-- Settings -->
     <string name="settings_title">设置</string>

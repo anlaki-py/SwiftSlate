@@ -44,6 +44,14 @@
     <string name="commands_error_prefix">Le déclencheur doit commencer par \'%1$s\'</string>
     <string name="commands_error_duplicate">Une commande avec ce déclencheur existe déjà</string>
     <string name="commands_error_empty_trigger">Le déclencheur doit avoir un nom après le préfixe</string>
+    <string name="commands_modified">Modifié</string>
+    <string name="commands_edit_title">Modifier la commande</string>
+    <string name="commands_reset_command">Réinitialiser par défaut</string>
+    <string name="commands_reset_confirm_title">Réinitialiser cette commande ?</string>
+    <string name="commands_reset_confirm_message">La commande intégrée d\'origine sera restaurée.</string>
+    <string name="commands_translate_hint">Ajoutez :&lt;lang&gt; en tapant (ex. %1$s:fr)</string>
+    <string name="commands_deleted_section">Supprimés</string>
+    <string name="commands_restore_command">Restaurer</string>
 
     <!-- Settings -->
     <string name="settings_title">Paramètres</string>

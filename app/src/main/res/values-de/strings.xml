@@ -44,6 +44,14 @@
     <string name="commands_error_prefix">Trigger muss mit \'%1$s\' beginnen</string>
     <string name="commands_error_duplicate">Ein Befehl mit diesem Trigger existiert bereits</string>
     <string name="commands_error_empty_trigger">Trigger muss einen Namen nach dem Präfix haben</string>
+    <string name="commands_modified">Geändert</string>
+    <string name="commands_edit_title">Befehl bearbeiten</string>
+    <string name="commands_reset_command">Auf Standard zurücksetzen</string>
+    <string name="commands_reset_confirm_title">Diesen Befehl zurücksetzen?</string>
+    <string name="commands_reset_confirm_message">Der ursprüngliche integrierte Befehl wird wiederhergestellt.</string>
+    <string name="commands_translate_hint">Hänge :&lt;lang&gt; beim Tippen an (z. B. %1$s:fr)</string>
+    <string name="commands_deleted_section">Gelöscht</string>
+    <string name="commands_restore_command">Wiederherstellen</string>
 
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>

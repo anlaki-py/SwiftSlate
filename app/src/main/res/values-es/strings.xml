@@ -44,6 +44,14 @@
     <string name="commands_error_prefix">El activador debe comenzar con \'%1$s\'</string>
     <string name="commands_error_duplicate">Ya existe un comando con este activador</string>
     <string name="commands_error_empty_trigger">El activador debe tener un nombre después del prefijo</string>
+    <string name="commands_modified">Modificado</string>
+    <string name="commands_edit_title">Editar comando</string>
+    <string name="commands_reset_command">Restablecer valores predeterminados</string>
+    <string name="commands_reset_confirm_title">¿Restablecer este comando?</string>
+    <string name="commands_reset_confirm_message">Se restaurará el comando integrado original.</string>
+    <string name="commands_translate_hint">Añade :&lt;lang&gt; al escribir (ej. %1$s:fr)</string>
+    <string name="commands_deleted_section">Eliminados</string>
+    <string name="commands_restore_command">Restaurar</string>
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
