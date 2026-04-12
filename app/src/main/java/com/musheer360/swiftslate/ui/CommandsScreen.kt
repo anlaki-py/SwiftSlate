@@ -459,7 +459,7 @@ private fun CommandFormCard(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     )
-                }
+                )
 
                 // Description field — optional, shown below prompt
                 Spacer(modifier = Modifier.height(8.dp))
