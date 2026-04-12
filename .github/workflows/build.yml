@@ -2,7 +2,7 @@ name: Build & Release
 
 on:
   push:
-    branches: [master]
+    branches: ['**']
     paths:
       - 'app/**'
       - 'build.gradle.kts'
@@ -32,6 +32,8 @@ jobs:
       version_name: ${{ steps.version.outputs.version_name }}
       version_code: ${{ steps.version.outputs.version_code }}
       create_tag: ${{ steps.version.outputs.create_tag }}
+      is_beta: ${{ steps.version.outputs.is_beta }}
+      apk_name: ${{ steps.version.outputs.apk_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -45,23 +47,42 @@ jobs:
         run: |
           BASE_VERSION=$(grep 'val baseVersion' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
 
+          # Sanitize branch name for use in filenames/tags (replace / and other special chars with -)
+          BRANCH_SAFE="${GITHUB_REF_NAME//\//-}"
+          BRANCH_SAFE="${BRANCH_SAFE//[^a-zA-Z0-9._-]/-}"
+
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG="${{ github.ref_name }}"
+            IS_BETA=false
             CREATE_TAG=false
-          else
+          elif [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             PATCH=$(git tag -l "v${BASE_VERSION}.*" | { grep -v beta || true; } | sed "s/v${BASE_VERSION}\.//" | sort -n | tail -1)
             NEXT=$((${PATCH:--1} + 1))
             TAG="v${BASE_VERSION}.${NEXT}"
+            IS_BETA=false
+            CREATE_TAG=true
+          else
+            # Any non-master branch → beta release
+            PATCH=$(git tag -l "v${BASE_VERSION}.*-beta.${BRANCH_SAFE}.*" | sed "s/v${BASE_VERSION}\.\(.*\)-beta.${BRANCH_SAFE}\..*/\1/" | sort -n | tail -1)
+            BUILD=$(git tag -l "v${BASE_VERSION}.${PATCH:--}-beta.${BRANCH_SAFE}.*" | sed "s/.*-beta.${BRANCH_SAFE}\.//" | sort -n | tail -1)
+            NEXT_PATCH=$((${PATCH:--1} + 1))
+            # Reuse same patch number, increment build counter per branch
+            NEXT_BUILD=$((${BUILD:--1} + 1))
+            TAG="v${BASE_VERSION}.${NEXT_PATCH}-beta.${BRANCH_SAFE}.${NEXT_BUILD}"
+            IS_BETA=true
             CREATE_TAG=true
           fi
 
           VERSION_NAME="${TAG#v}"
           VERSION_CODE=$(git rev-list --count HEAD)
+          APK_NAME="SwiftSlate-${TAG}"
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          echo "create_tag=${CREATE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "create_tag=$CREATE_TAG" >> "$GITHUB_OUTPUT"
+          echo "is_beta=$IS_BETA" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint
@@ -228,13 +249,13 @@ jobs:
 
       - name: Rename APK
         shell: bash
-        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/SwiftSlate-${{ needs.version.outputs.tag }}.apk
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/${{ needs.version.outputs.apk_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: SwiftSlate-${{ needs.version.outputs.tag }}
-          path: app/build/outputs/apk/release/SwiftSlate-*.apk
+          name: ${{ needs.version.outputs.apk_name }}
+          path: app/build/outputs/apk/release/${{ needs.version.outputs.apk_name }}.apk
           retention-days: 90
 
   release:
@@ -251,7 +272,7 @@ jobs:
       - name: Download APK
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: SwiftSlate-${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.apk_name }}
           path: artifacts/
 
       - name: Create tag
@@ -265,11 +286,12 @@ jobs:
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           tag_name: ${{ needs.version.outputs.tag }}
-          files: artifacts/SwiftSlate-*.apk
-          name: SwiftSlate ${{ needs.version.outputs.tag }}
+          files: artifacts/${{ needs.version.outputs.apk_name }}.apk
+          name: >-
+            SwiftSlate ${{ needs.version.outputs.tag }}${{ needs.version.outputs.is_beta == 'true' && ' [BETA]' || '' }}
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.version.outputs.is_beta == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -295,4 +317,3 @@ jobs:
           **Run:** [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
           **Branch:** \`${GITHUB_REF_NAME}\`" \
             --label "bug"
-

@@ -45,6 +45,14 @@
     <string name="commands_error_prefix">Trigger must start with \'%1$s\'</string>
     <string name="commands_error_duplicate">A command with this trigger already exists</string>
     <string name="commands_error_empty_trigger">Trigger must have a name after the prefix</string>
+    <string name="commands_modified">Modified</string>
+    <string name="commands_edit_title">Edit Command</string>
+    <string name="commands_reset_command">Reset to Default</string>
+    <string name="commands_reset_confirm_title">Reset this command?</string>
+    <string name="commands_reset_confirm_message">This will restore the original built-in command.</string>
+    <string name="commands_translate_hint">Append :&lt;lang&gt; when typing (e.g. %1$s:fr)</string>
+    <string name="commands_deleted_section">Deleted</string>
+    <string name="commands_restore_command">Restore</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
