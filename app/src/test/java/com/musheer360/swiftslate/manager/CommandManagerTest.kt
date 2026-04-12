@@ -19,6 +19,7 @@ class CommandManagerTest {
         // Clear prefs to ensure clean state
         context.getSharedPreferences("commands", 0).edit().clear().commit()
         context.getSharedPreferences("settings", 0).edit().clear().commit()
+        context.getSharedPreferences("command_overrides", 0).edit().clear().commit()
         commandManager = CommandManager(context)
     }
 
@@ -58,21 +59,21 @@ class CommandManagerTest {
 
     @Test
     fun findCommand_translateWithValidLangCode_returnsTranslateCommand() {
-        val result = commandManager.findCommand("hello?translate:es")
+        val result = commandManager.findCommand("hello?tr:es")
         assertNotNull(result)
-        assertEquals("?translate:es", result!!.trigger)
+        assertEquals("?tr:es", result!!.trigger)
         assertTrue(result.prompt.contains("es"))
         assertTrue(result.isBuiltIn)
     }
 
     @Test
     fun findCommand_translateWithOneCharCode_returnsNull() {
-        assertNull(commandManager.findCommand("hello?translate:x"))
+        assertNull(commandManager.findCommand("hello?tr:x"))
     }
 
     @Test
     fun findCommand_translateWithSixCharCode_returnsNull() {
-        assertNull(commandManager.findCommand("hello?translate:abcdef"))
+        assertNull(commandManager.findCommand("hello?tr:abcdef"))
     }
 
     @Test
@@ -89,7 +90,7 @@ class CommandManagerTest {
     @Test
     fun getCommands_returnsNineBuiltInByDefault() {
         val commands = commandManager.getCommands()
-        assertEquals(9, commands.size)
+        assertEquals(10, commands.size)
     }
 
     @Test
@@ -102,7 +103,7 @@ class CommandManagerTest {
     fun getCommands_afterAddingCustom_includesIt() {
         commandManager.addCustomCommand(Command("?myCmd", "do something"))
         val commands = commandManager.getCommands()
-        assertEquals(10, commands.size)
+        assertEquals(11, commands.size)
         assertTrue(commands.any { it.trigger == "?myCmd" })
     }
 

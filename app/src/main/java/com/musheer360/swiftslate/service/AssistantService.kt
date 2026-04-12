@@ -116,11 +116,17 @@ class AssistantService : AccessibilityService() {
         updateTriggers()
     }
 
+    /**
+     * Refreshes cached trigger data from CommandManager.
+     * Filters the translate display entry from triggerLastChars to avoid
+     * false-positive matching on the literal '<lang>' suffix.
+     */
     private fun updateTriggers() {
         cachedPrefix = commandManager.getTriggerPrefix()
-        cachedTranslatePrefix = "${cachedPrefix}translate:"
+        cachedTranslatePrefix = commandManager.getTranslatePrefix()
         val cmds = commandManager.getCommands()
-        triggerLastChars = cmds.mapNotNull { it.trigger.lastOrNull() }.toSet()
+        triggerLastChars = cmds.filter { it.builtInKey != "translate" }
+            .mapNotNull { it.trigger.lastOrNull() }.toSet()
         lastTriggerRefresh = System.currentTimeMillis()
     }
 
@@ -210,7 +216,7 @@ class AssistantService : AccessibilityService() {
         val precedingText = text.substring(0, text.length - command.trigger.length)
         val cleanText = precedingText.trim()
 
-        if (command.trigger.endsWith("undo") && command.isBuiltIn) {
+        if (command.builtInKey == "undo") {
             if (!isProcessing.compareAndSet(false, true)) {
                 source.recycle()
                 return

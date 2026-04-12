@@ -44,6 +44,15 @@
     <string name="commands_error_prefix">O gatilho deve começar com \'%1$s\'</string>
     <string name="commands_error_duplicate">Já existe um comando com este gatilho</string>
     <string name="commands_error_empty_trigger">O gatilho deve ter um nome após o prefixo</string>
+    <string name="commands_modified">Modificado</string>
+    <string name="commands_edit_title">Editar comando</string>
+    <string name="commands_reset_command">Redefinir para padrão</string>
+    <string name="commands_reset_confirm_title">Redefinir este comando?</string>
+    <string name="commands_reset_confirm_message">O comando integrado original será restaurado.</string>
+    <string name="commands_translate_hint">Adicione :&lt;lang&gt; ao digitar (ex.: %1$s:fr)</string>
+    <string name="commands_deleted_section">Excluídos</string>
+    <string name="commands_restore_command">Restaurar</string>
+    <string name="commands_description_label">Descrição (opcional)</string>
 
     <!-- Settings -->
     <string name="settings_title">Configurações</string>
