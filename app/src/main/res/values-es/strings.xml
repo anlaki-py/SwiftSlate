@@ -52,6 +52,7 @@
     <string name="commands_translate_hint">Añade :&lt;lang&gt; al escribir (ej. %1$s:fr)</string>
     <string name="commands_deleted_section">Eliminados</string>
     <string name="commands_restore_command">Restaurar</string>
+    <string name="commands_description_label">Descripción (opcional)</string>
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>

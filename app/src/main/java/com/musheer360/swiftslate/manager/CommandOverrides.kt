@@ -11,6 +11,15 @@ import org.json.JSONObject
  */
 class CommandOverrides(context: Context) {
 
+    /**
+     * Holds override data for a single built-in command.
+     *
+     * @param trigger The overridden trigger string.
+     * @param prompt The overridden prompt string.
+     * @param description The overridden description (may be empty).
+     */
+    data class OverrideData(val trigger: String, val prompt: String, val description: String)
+
     private val prefs: SharedPreferences =
         context.getSharedPreferences("command_overrides", Context.MODE_PRIVATE)
 
@@ -20,11 +29,15 @@ class CommandOverrides(context: Context) {
      * @param builtInKey The built-in command key (e.g. "fix", "translate").
      * @return A Pair of (trigger, prompt) if overridden, null otherwise.
      */
-    fun getOverride(builtInKey: String): Pair<String, String>? {
+    fun getOverride(builtInKey: String): OverrideData? {
         val json = prefs.getString("override_$builtInKey", null) ?: return null
         return try {
             val obj = JSONObject(json)
-            obj.getString("trigger") to obj.getString("prompt")
+            OverrideData(
+                obj.getString("trigger"),
+                obj.getString("prompt"),
+                obj.optString("description", "")
+            )
         } catch (_: Exception) { null }
     }
 
@@ -63,11 +76,13 @@ class CommandOverrides(context: Context) {
      * @param newTrigger The new trigger string (e.g. "?fixall"). For translate,
      *                   this is the base trigger without ":<lang>" (e.g. "?tr").
      * @param newPrompt The new prompt string.
+     * @param newDescription The new description string (may be empty).
      */
-    fun saveOverride(builtInKey: String, newTrigger: String, newPrompt: String) {
+    fun saveOverride(builtInKey: String, newTrigger: String, newPrompt: String, newDescription: String) {
         val obj = JSONObject().apply {
             put("trigger", newTrigger)
             put("prompt", newPrompt)
+            put("description", newDescription)
         }
         prefs.edit()
             .putString("override_$builtInKey", obj.toString())
@@ -111,7 +126,7 @@ class CommandOverrides(context: Context) {
     fun getTranslateTriggerName(prefix: String): String {
         val override = getOverride("translate")
             ?: return CommandConstants.DEFAULT_TRANSLATE_TRIGGER_NAME
-        val trigger = override.first
+        val trigger = override.trigger
         // Strip the prefix to get just the name part
         return if (trigger.startsWith(prefix)) {
             trigger.substring(prefix.length)
@@ -128,7 +143,7 @@ class CommandOverrides(context: Context) {
     fun getTranslatePromptTemplate(): String {
         val override = getOverride("translate")
             ?: return CommandConstants.DEFAULT_TRANSLATE_PROMPT
-        return override.second
+        return override.prompt
     }
 
     /**

@@ -59,21 +59,21 @@ class CommandManagerTest {
 
     @Test
     fun findCommand_translateWithValidLangCode_returnsTranslateCommand() {
-        val result = commandManager.findCommand("hello?translate:es")
+        val result = commandManager.findCommand("hello?tr:es")
         assertNotNull(result)
-        assertEquals("?translate:es", result!!.trigger)
+        assertEquals("?tr:es", result!!.trigger)
         assertTrue(result.prompt.contains("es"))
         assertTrue(result.isBuiltIn)
     }
 
     @Test
     fun findCommand_translateWithOneCharCode_returnsNull() {
-        assertNull(commandManager.findCommand("hello?translate:x"))
+        assertNull(commandManager.findCommand("hello?tr:x"))
     }
 
     @Test
     fun findCommand_translateWithSixCharCode_returnsNull() {
-        assertNull(commandManager.findCommand("hello?translate:abcdef"))
+        assertNull(commandManager.findCommand("hello?tr:abcdef"))
     }
 
     @Test

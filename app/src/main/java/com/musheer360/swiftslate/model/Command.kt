@@ -16,6 +16,8 @@ enum class CommandType {
  * @param builtInKey The original built-in name (e.g. "fix", "translate") for tracking
  *                   overrides. Null for custom commands.
  * @param isOverridden Whether this built-in command has been modified from its default.
+ * @param description Optional brief description shown in the commands list.
+ *                    Falls back to a prompt snippet when empty.
  */
 @Immutable
 data class Command(
@@ -24,5 +26,6 @@ data class Command(
     val isBuiltIn: Boolean = false,
     val type: CommandType = CommandType.AI,
     val builtInKey: String? = null,
-    val isOverridden: Boolean = false
+    val isOverridden: Boolean = false,
+    val description: String = ""
 )

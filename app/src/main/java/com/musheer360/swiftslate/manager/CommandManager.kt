@@ -81,18 +81,20 @@ class CommandManager(context: Context) {
         val prefix = getTriggerPrefix()
         val commands = mutableListOf<Command>()
         // Standard built-in commands (fix, improve, etc.)
-        for ((key, defaultPrompt) in CommandConstants.BUILT_IN_DEFINITIONS) {
-            if (overrides.isDeleted(key)) continue
-            val override = overrides.getOverride(key)
+        for (def in CommandConstants.BUILT_IN_DEFINITIONS) {
+            if (overrides.isDeleted(def.key)) continue
+            val override = overrides.getOverride(def.key)
             if (override != null) {
                 commands.add(Command(
-                    override.first, override.second, true,
-                    CommandType.AI, builtInKey = key, isOverridden = true
+                    override.trigger, override.prompt, true,
+                    CommandType.AI, builtInKey = def.key, isOverridden = true,
+                    description = override.description.ifBlank { def.description }
                 ))
             } else {
                 commands.add(Command(
-                    "$prefix$key", defaultPrompt, true,
-                    CommandType.AI, builtInKey = key
+                    "$prefix${def.key}", def.prompt, true,
+                    CommandType.AI, builtInKey = def.key,
+                    description = def.description
                 ))
             }
         }
@@ -100,14 +102,16 @@ class CommandManager(context: Context) {
         val translateOverride = overrides.getOverride("translate")
         if (translateOverride != null) {
             commands.add(Command(
-                "${translateOverride.first}:<lang>", translateOverride.second, true,
-                CommandType.AI, builtInKey = "translate", isOverridden = true
+                "${translateOverride.trigger}:<lang>", translateOverride.prompt, true,
+                CommandType.AI, builtInKey = "translate", isOverridden = true,
+                description = translateOverride.description.ifBlank { CommandConstants.DEFAULT_TRANSLATE_DESCRIPTION }
             ))
         } else {
             commands.add(Command(
                 "${prefix}${CommandConstants.DEFAULT_TRANSLATE_TRIGGER_NAME}:<lang>",
                 CommandConstants.DEFAULT_TRANSLATE_PROMPT, true,
-                CommandType.AI, builtInKey = "translate"
+                CommandType.AI, builtInKey = "translate",
+                description = CommandConstants.DEFAULT_TRANSLATE_DESCRIPTION
             ))
         }
         return commands
@@ -134,7 +138,8 @@ class CommandManager(context: Context) {
             if (!trigger.startsWith(prefix)) needsMigration = true
             customCommands.add(Command(trigger, obj.getString("prompt"), false,
                 try { CommandType.valueOf(obj.optString("type", CommandType.AI.name)) }
-                catch (_: Exception) { CommandType.AI }))
+                catch (_: Exception) { CommandType.AI },
+                description = obj.optString("description", "")))
         }
         // Self-heal prefix mismatch (e.g. crash between two apply() calls in setTriggerPrefix)
         if (needsMigration && !migrating) {
@@ -159,8 +164,8 @@ class CommandManager(context: Context) {
     @Synchronized fun getDeletedBuiltInCommands(): List<Command> {
         val prefix = getTriggerPrefix()
         return CommandConstants.BUILT_IN_DEFINITIONS
-            .filter { (key, _) -> overrides.isDeleted(key) }
-            .map { (key, prompt) -> Command("$prefix$key", prompt, true, CommandType.AI, builtInKey = key) }
+            .filter { overrides.isDeleted(it.key) }
+            .map { Command("$prefix${it.key}", it.prompt, true, CommandType.AI, builtInKey = it.key, description = it.description) }
     }
 
     /**
@@ -170,8 +175,10 @@ class CommandManager(context: Context) {
      * @param newTrigger The new trigger string.
      * @param newPrompt The new prompt string.
      */
-    @Synchronized fun overrideBuiltInCommand(builtInKey: String, newTrigger: String, newPrompt: String) {
-        overrides.saveOverride(builtInKey, newTrigger, newPrompt)
+    @Synchronized fun overrideBuiltInCommand(
+        builtInKey: String, newTrigger: String, newPrompt: String, newDescription: String
+    ) {
+        overrides.saveOverride(builtInKey, newTrigger, newPrompt, newDescription)
         cachedCommands = null
     }
 
@@ -228,6 +235,9 @@ class CommandManager(context: Context) {
         newObj.put("trigger", command.trigger)
         newObj.put("prompt", command.prompt)
         newObj.put("type", command.type.name)
+        if (command.description.isNotBlank()) {
+            newObj.put("description", command.description)
+        }
         newArr.put(newObj)
         prefs.edit().putString("custom_commands", newArr.toString()).apply()
         cachedCommands = null
@@ -310,9 +320,12 @@ class CommandManager(context: Context) {
             if (langPart.length in 2..5 && langPart.all { it.isLetterOrDigit() }) {
                 val promptTemplate = overrides.getTranslatePromptTemplate()
                 val prompt = promptTemplate.replace(CommandConstants.LANG_PLACEHOLDER, langPart)
+                val description = overrides.getOverride("translate")?.description
+                    ?: CommandConstants.DEFAULT_TRANSLATE_DESCRIPTION
                 return Command(
                     "${translatePrefix}$langPart", prompt, true,
-                    CommandType.AI, builtInKey = "translate"
+                    CommandType.AI, builtInKey = "translate",
+                    description = description
                 )
             }
         }

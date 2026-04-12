@@ -52,6 +52,7 @@
     <string name="commands_translate_hint">टाइप करते समय :&lt;lang&gt; जोड़ें (जैसे, %1$s:fr)</string>
     <string name="commands_deleted_section">हटाए गए</string>
     <string name="commands_restore_command">पुनर्स्थापित करें</string>
+    <string name="commands_description_label">विवरण (वैकल्पिक)</string>
 
     <!-- Settings -->
     <string name="settings_title">सेटिंग्स</string>

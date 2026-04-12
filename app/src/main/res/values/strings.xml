@@ -53,6 +53,7 @@
     <string name="commands_translate_hint">Append :&lt;lang&gt; when typing (e.g. %1$s:fr)</string>
     <string name="commands_deleted_section">Deleted</string>
     <string name="commands_restore_command">Restore</string>
+    <string name="commands_description_label">Description (optional)</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
