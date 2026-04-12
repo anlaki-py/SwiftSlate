@@ -447,7 +447,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
                 .clickable(interactionSource = null, indication = null) {
-                    uriHandler.openUri("https://github.com/Musheer360/SwiftSlate/releases/latest")
+                    uriHandler.openUri("https://github.com/anlaki-py/SwiftSlate/releases/latest")
                 },
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
