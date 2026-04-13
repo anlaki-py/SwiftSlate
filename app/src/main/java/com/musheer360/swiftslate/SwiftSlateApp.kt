@@ -13,3 +13,4 @@ class SwiftSlateApp : Application() {
         getSharedPreferences("secure_keys_prefs", Context.MODE_PRIVATE)
     }
 }
+
