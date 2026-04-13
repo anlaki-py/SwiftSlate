@@ -95,4 +95,15 @@
     <string name="delete_confirm_message">Cette action est irréversible.</string>
     <string name="delete_confirm_button">Supprimer</string>
     <string name="backup_export_error">Échec de l\'exportation</string>
+
+    <!-- Keep-Alive / Notifications -->
+    <string name="keep_alive_channel_name">SwiftSlate Keep-Alive</string>
+    <string name="keep_alive_notification_title">SwiftSlate est actif</string>
+    <string name="keep_alive_notification_text">Le remplacement de texte par IA est en cours.</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Optimisation de la batterie</string>
+    <string name="battery_optimization_exempt">Non restreint</string>
+    <string name="battery_optimization_restricted">Restreint</string>
+    <string name="battery_optimization_disable">Dé-restreindre</string>
 </resources>

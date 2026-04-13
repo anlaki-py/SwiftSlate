@@ -95,4 +95,15 @@
     <string name="delete_confirm_message">Esta acción no se puede deshacer.</string>
     <string name="delete_confirm_button">Eliminar</string>
     <string name="backup_export_error">Error al exportar</string>
+
+    <!-- Keep-Alive / Notifications -->
+    <string name="keep_alive_channel_name">SwiftSlate Keep-Alive</string>
+    <string name="keep_alive_notification_title">SwiftSlate está activo</string>
+    <string name="keep_alive_notification_text">El reemplazo de texto con IA está en ejecución.</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Optimización de batería</string>
+    <string name="battery_optimization_exempt">Sin restricciones</string>
+    <string name="battery_optimization_restricted">Restringido</string>
+    <string name="battery_optimization_disable">Quitar restricción</string>
 </resources>

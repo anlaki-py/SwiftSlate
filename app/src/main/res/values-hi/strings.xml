@@ -95,4 +95,15 @@
     <string name="delete_confirm_message">यह क्रिया पूर्ववत नहीं की जा सकती।</string>
     <string name="delete_confirm_button">हटाएँ</string>
     <string name="backup_export_error">निर्यात विफल</string>
+
+    <!-- Keep-Alive / Notifications -->
+    <string name="keep_alive_channel_name">SwiftSlate Keep-Alive</string>
+    <string name="keep_alive_notification_title">SwiftSlate सक्रिय है</string>
+    <string name="keep_alive_notification_text">सिस्टम-व्यापी AI टेक्स्ट प्रतिस्थापन चालू है।</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">बैटरी अनुकूलन</string>
+    <string name="battery_optimization_exempt">अप्रतिबंधित</string>
+    <string name="battery_optimization_restricted">प्रतिबंधित</string>
+    <string name="battery_optimization_disable">प्रतिबंध हटाएँ</string>
 </resources>

@@ -95,4 +95,15 @@
     <string name="delete_confirm_message">Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="delete_confirm_button">Löschen</string>
     <string name="backup_export_error">Export fehlgeschlagen</string>
+
+    <!-- Keep-Alive / Notifications -->
+    <string name="keep_alive_channel_name">SwiftSlate Keep-Alive</string>
+    <string name="keep_alive_notification_title">SwiftSlate ist aktiv</string>
+    <string name="keep_alive_notification_text">Systemweite KI-Textersetzung läuft.</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Akkuoptimierung</string>
+    <string name="battery_optimization_exempt">Uneingeschränkt</string>
+    <string name="battery_optimization_restricted">Eingeschränkt</string>
+    <string name="battery_optimization_disable">Freigeben</string>
 </resources>

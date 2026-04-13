@@ -95,4 +95,15 @@
     <string name="delete_confirm_message">此操作无法撤销。</string>
     <string name="delete_confirm_button">删除</string>
     <string name="backup_export_error">导出失败</string>
+
+    <!-- Keep-Alive / Notifications -->
+    <string name="keep_alive_channel_name">SwiftSlate 保活</string>
+    <string name="keep_alive_notification_title">SwiftSlate 已激活</string>
+    <string name="keep_alive_notification_text">系统级 AI 文本替换正在运行。</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">电池优化</string>
+    <string name="battery_optimization_exempt">无限制</string>
+    <string name="battery_optimization_restricted">受限</string>
+    <string name="battery_optimization_disable">解除限制</string>
 </resources>
