@@ -7,6 +7,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
+import androidx.annotation.RequiresApi
 
 /**
  * Provides cross-version haptic feedback using the system vibrator.
@@ -53,6 +54,7 @@ object HapticHelper {
      * @param vibrator The vibrator instance to trigger.
      * @param feedbackType The feedback constant to map.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun vibrateByType(vibrator: Vibrator, feedbackType: Int) {
         when (feedbackType) {
             HapticFeedbackConstants.CONFIRM ->
