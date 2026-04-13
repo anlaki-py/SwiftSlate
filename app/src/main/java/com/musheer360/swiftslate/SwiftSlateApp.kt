@@ -38,3 +38,4 @@ class SwiftSlateApp : Application() {
         KeepAliveService.start(this)
     }
 }
+
