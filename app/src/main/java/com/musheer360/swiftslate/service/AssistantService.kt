@@ -77,6 +77,10 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             textReplacer, toastManager, serviceScope, handler
         )
         updateTriggers()
+
+        // Ensure the foreground keep-alive is running so the process
+        // has elevated priority even without the app being open
+        KeepAliveService.start(applicationContext)
     }
 
     /**

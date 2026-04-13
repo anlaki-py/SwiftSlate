@@ -30,6 +30,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.service.BatteryOptimizationHelper
+import com.musheer360.swiftslate.ui.components.BatteryOptimizationCard
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
@@ -53,6 +55,9 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
     var isServiceEnabled by remember { mutableStateOf(checkServiceEnabled(context)) }
     var keyCount by remember { mutableIntStateOf(keyManager.getKeys().size) }
     var currentPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
+    var isBatteryOptimized by remember {
+        mutableStateOf(!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -80,6 +85,12 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
                 if (newEnabled != isServiceEnabled) isServiceEnabled = newEnabled
                 if (newKeyCount != keyCount) keyCount = newKeyCount
                 if (newPrefix != currentPrefix) currentPrefix = newPrefix
+
+                // Poll battery optimization status alongside other checks
+                val newBatteryOptimized =
+                    !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
+                if (newBatteryOptimized != isBatteryOptimized) isBatteryOptimized = newBatteryOptimized
+
                 delay(3000)
             }
         }
@@ -167,6 +178,17 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        SectionHeader(stringResource(R.string.battery_optimization_title))
+        BatteryOptimizationCard(
+            isBatteryOptimized = isBatteryOptimized,
+            onUnrestrictClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
+            }
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 

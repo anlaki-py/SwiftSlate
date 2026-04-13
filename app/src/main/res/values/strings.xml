@@ -95,4 +95,15 @@
     <string name="delete_confirm_key_title">Delete this API key?</string>
     <string name="delete_confirm_message">This action cannot be undone.</string>
     <string name="delete_confirm_button">Delete</string>
+
+    <!-- Keep-Alive / Notifications -->
+    <string name="keep_alive_channel_name">SwiftSlate Keep-Alive</string>
+    <string name="keep_alive_notification_title">SwiftSlate is active</string>
+    <string name="keep_alive_notification_text">System-wide AI text replacement is running.</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Battery Optimization</string>
+    <string name="battery_optimization_exempt">Unrestricted</string>
+    <string name="battery_optimization_restricted">Restricted</string>
+    <string name="battery_optimization_disable">Unrestrict</string>
 </resources>
