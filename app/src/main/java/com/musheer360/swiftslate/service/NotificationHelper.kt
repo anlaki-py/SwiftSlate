@@ -81,7 +81,7 @@ object NotificationHelper {
         return NotificationCompat.Builder(context, NotificationConstants.KEEP_ALIVE_CHANNEL_ID)
             .setContentTitle(context.getString(R.string.keep_alive_notification_title))
             .setContentText(context.getString(R.string.keep_alive_notification_text))
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(contentIntent)
             .setDeleteIntent(deleteIntent)
             .setOngoing(true)

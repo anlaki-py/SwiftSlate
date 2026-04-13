@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.musheer360.swiftslate.service.KeepAliveService
 import com.musheer360.swiftslate.ui.CommandsScreen
 import com.musheer360.swiftslate.ui.DashboardScreen
 import com.musheer360.swiftslate.ui.KeysScreen
@@ -38,8 +39,23 @@ enum class Tab(@StringRes val titleRes: Int, val icon: ImageVector) {
 }
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Sets up the Compose UI and ensures the keep-alive foreground service
+     * is running.
+     *
+     * Starting the service here (in addition to [SwiftSlateApp.onCreate])
+     * guarantees a foreground-activity context, which satisfies Android 12+
+     * FGS start restrictions on all OEMs including Xiaomi/HyperOS.
+     *
+     * @param savedInstanceState Saved instance state bundle.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Guaranteed foreground context — most reliable FGS start point
+        KeepAliveService.start(this)
+
         enableEdgeToEdge()
         setContent {
             SwiftSlateTheme {

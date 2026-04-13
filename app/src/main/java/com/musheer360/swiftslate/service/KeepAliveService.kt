@@ -106,11 +106,20 @@ class KeepAliveService : Service() {
          * [Context.startForegroundService] on API 26+ and plain
          * [Context.startService] on older versions.
          *
+         * Wrapped in try-catch because Android 12+ throws
+         * [android.app.ForegroundServiceStartNotAllowedException] if the
+         * app is not in an allowed state (e.g. boot receiver on some OEMs).
+         *
          * @param context Any context (application, activity, or service).
          */
         fun start(context: Context) {
-            val intent = Intent(context, KeepAliveService::class.java)
-            ContextCompat.startForegroundService(context, intent)
+            try {
+                val intent = Intent(context, KeepAliveService::class.java)
+                ContextCompat.startForegroundService(context, intent)
+            } catch (_: Exception) {
+                // Silently ignore — the service will be started from the
+                // next allowed context (Activity, AccessibilityService, etc.)
+            }
         }
 
         /**
