@@ -10,24 +10,29 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
@@ -35,14 +40,14 @@ import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import com.musheer360.swiftslate.ui.components.ScreenTitle
-import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.components.SlateItemCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
 
 /**
- * Main commands screen showing all built-in and custom commands.
- * Supports adding, editing, deleting, and resetting commands.
+ * Main commands screen with compact expandable items, search bar at top,
+ * and an add/edit form at the bottom. Deleted commands (including built-in)
+ * are hidden entirely. The undo command is visible but uneditable.
  *
  * @param commandManager The command manager instance for data operations.
  */
@@ -51,9 +56,11 @@ import com.musheer360.swiftslate.ui.components.SlateTextField
 fun CommandsScreen(commandManager: CommandManager) {
     val haptic = LocalHapticFeedback.current
     var commands by remember { mutableStateOf(commandManager.getCommands()) }
-    var deletedCommands by remember { mutableStateOf(commandManager.getDeletedBuiltInCommands()) }
+
+    // Sort built-in first, then custom
     val displayCommands = remember(commands) {
-        commands.filter { it.isBuiltIn } + commands.filter { !it.isBuiltIn }
+        val (builtIn, custom) = commands.partition { it.isBuiltIn }
+        builtIn + custom
     }
 
     // Form state
@@ -73,14 +80,24 @@ fun CommandsScreen(commandManager: CommandManager) {
     val prefix = commandManager.getTriggerPrefix()
     val errorPrefixMsg = stringResource(R.string.commands_error_prefix, prefix)
     val errorDuplicateMsg = stringResource(R.string.commands_error_duplicate)
+    val errorConflictTemplate = stringResource(R.string.commands_error_conflict, "\u0000")
     val errorEmptyTrigger = stringResource(R.string.commands_error_empty_trigger)
     val collapseLabel = stringResource(R.string.commands_collapse)
     val expandLabel = stringResource(R.string.commands_expand)
 
-    /** Refreshes both active and deleted command lists from the manager. */
+    // Search & expand state
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var expandedIds by remember { mutableStateOf(emptySet<String>()) }
+
+    /** Filters commands by search query against trigger text. */
+    val filteredCommands = remember(displayCommands, searchQuery) {
+        if (searchQuery.isBlank()) displayCommands
+        else displayCommands.filter { it.trigger.contains(searchQuery, ignoreCase = true) }
+    }
+
+    /** Refreshes command list from the manager. */
     fun refreshCommands() {
         commands = commandManager.getCommands()
-        deletedCommands = commandManager.getDeletedBuiltInCommands()
     }
 
     /** Resets all form fields and collapses the form. */
@@ -96,7 +113,7 @@ fun CommandsScreen(commandManager: CommandManager) {
     }
 
     val chevronRotation by animateFloatAsState(
-        targetValue = if (isFormExpanded) 180f else 0f,
+        targetValue = if (isFormExpanded) 0f else 180f,
         animationSpec = tween(250),
         label = "chevron"
     )
@@ -104,12 +121,95 @@ fun CommandsScreen(commandManager: CommandManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { }
+            .graphicsLayer { } // Hardware layer for smooth NavHost slide animations
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         ScreenTitle(stringResource(R.string.commands_title))
 
-        // Collapsible add/edit form card
+        // Search pill — shown when there are commands to search
+        if (displayCommands.isNotEmpty()) {
+            SearchBar(
+                searchQuery = searchQuery,
+                onQueryChange = { searchQuery = it },
+                expandedIds = expandedIds,
+                filteredCommands = filteredCommands,
+                expandLabel = expandLabel,
+                collapseLabel = collapseLabel,
+                onToggleExpandAll = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    expandedIds = if (expandedIds.isEmpty()) {
+                        filteredCommands.map { it.trigger }.toSet()
+                    } else {
+                        emptySet()
+                    }
+                }
+            )
+
+            // Commands list — takes all available vertical space
+            SlateCard(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 4.dp)
+                ) {
+                    // Empty search results message
+                    if (filteredCommands.isEmpty() && searchQuery.isNotBlank()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.commands_search_empty),
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    items(filteredCommands, key = { it.trigger }) { cmd ->
+                        val isExpanded = cmd.trigger in expandedIds
+                        // Undo command is a system utility — never editable
+                        val isUndoCommand = cmd.builtInKey == "undo"
+
+                        CompactCommandItem(
+                            cmd = cmd,
+                            isExpanded = isExpanded,
+                            isUndoCommand = isUndoCommand,
+                            commandManager = commandManager,
+                            collapseLabel = collapseLabel,
+                            expandLabel = expandLabel,
+                            onToggleExpand = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                expandedIds = if (isExpanded) expandedIds - cmd.trigger
+                                else expandedIds + cmd.trigger
+                            },
+                            onEdit = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                // Strip :<lang> display suffix for translate
+                                trigger = if (cmd.builtInKey == "translate") {
+                                    cmd.trigger.replace(":<lang>", "")
+                                } else cmd.trigger
+                                prompt = cmd.prompt
+                                description = cmd.description
+                                selectedType = cmd.type
+                                editingTrigger = cmd.trigger
+                                editingBuiltInKey = cmd.builtInKey
+                                errorMessage = null
+                                isFormExpanded = true
+                            },
+                            onDelete = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                commandToDelete = cmd
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Collapsible add/edit form — anchored at bottom
         CommandFormCard(
             isFormExpanded = isFormExpanded,
             chevronRotation = chevronRotation,
@@ -148,15 +248,24 @@ fun CommandsScreen(commandManager: CommandManager) {
                         errorMessage = errorEmptyTrigger
                         return@CommandFormCard
                     }
-                    // Duplicate check — exclude the command currently being edited
+                    // Duplicate check — exclude the command being edited
                     if (commands.any { it.trigger == trimmedTrigger && it.trigger != editingTrigger }) {
                         errorMessage = errorDuplicateMsg
+                        return@CommandFormCard
+                    }
+                    // Conflict check — catch prefix overlaps
+                    val conflicting = commands.firstOrNull {
+                        it.trigger != editingTrigger &&
+                        (it.trigger.startsWith(trimmedTrigger) || trimmedTrigger.startsWith(it.trigger))
+                    }
+                    if (conflicting != null) {
+                        errorMessage = errorConflictTemplate.replace("\u0000", conflicting.trigger)
                         return@CommandFormCard
                     }
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
                     if (editingBuiltInKey != null) {
-                        // Saving a built-in override — strip trailing colons for translate
+                        // Built-in override — strip trailing colons for translate
                         val saveTrigger = if (editingBuiltInKey == "translate") {
                             trimmedTrigger.trimEnd(':')
                         } else trimmedTrigger
@@ -179,76 +288,6 @@ fun CommandsScreen(commandManager: CommandManager) {
             },
             onSaveEnabled = trigger.isNotBlank() && trigger.trim() != prefix && prompt.isNotBlank()
         )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        if (displayCommands.isNotEmpty() || deletedCommands.isNotEmpty()) {
-            SectionHeader(stringResource(R.string.commands_title))
-            SlateCard {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 4.dp)
-                ) {
-                    // Active commands
-                    itemsIndexed(displayCommands, key = { _, cmd -> cmd.trigger }) { _, cmd ->
-                        CommandListItem(
-                            cmd = cmd,
-                            commandManager = commandManager,
-                            onEdit = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                // For translate, strip the :<lang> display suffix
-                                trigger = if (cmd.builtInKey == "translate") {
-                                    cmd.trigger.replace(":<lang>", "")
-                                } else cmd.trigger
-                                prompt = cmd.prompt
-                                description = cmd.description
-                                selectedType = cmd.type
-                                editingTrigger = cmd.trigger
-                                editingBuiltInKey = cmd.builtInKey
-                                errorMessage = null
-                                isFormExpanded = true
-                            },
-                            onDelete = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                commandToDelete = cmd
-                            }
-                        )
-                    }
-                    // Deleted built-in commands section
-                    if (deletedCommands.isNotEmpty()) {
-                        item(key = "deleted_header") {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = stringResource(R.string.commands_deleted_section).uppercase(),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 1.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                        itemsIndexed(
-                            deletedCommands,
-                            key = { _, cmd -> "deleted_${cmd.builtInKey}" }
-                        ) { _, cmd ->
-                            DeletedCommandItem(
-                                cmd = cmd,
-                                onRestore = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    commandManager.resetBuiltInCommand(cmd.builtInKey!!)
-                                    refreshCommands()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            Spacer(modifier = Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 
     // Delete confirmation dialog
@@ -265,7 +304,8 @@ fun CommandsScreen(commandManager: CommandManager) {
                     } else {
                         commandManager.removeCustomCommand(cmdToDelete.trigger)
                     }
-                    // Close form if we were editing this command
+                    expandedIds = expandedIds - cmdToDelete.trigger
+                    // Close form if editing the deleted command
                     if (editingTrigger == cmdToDelete.trigger) resetForm()
                     refreshCommands()
                     commandToDelete = null
@@ -308,9 +348,262 @@ fun CommandsScreen(commandManager: CommandManager) {
 }
 
 /**
+ * Search pill with query input, clear button, and expand/collapse-all toggle.
+ *
+ * @param searchQuery Current search text.
+ * @param onQueryChange Callback when query text changes.
+ * @param expandedIds Set of currently expanded command triggers.
+ * @param filteredCommands The filtered command list for expand-all.
+ * @param expandLabel Accessibility label for expanding.
+ * @param collapseLabel Accessibility label for collapsing.
+ * @param onToggleExpandAll Callback to toggle expand/collapse all.
+ */
+@Composable
+private fun SearchBar(
+    searchQuery: String,
+    onQueryChange: (String) -> Unit,
+    expandedIds: Set<String>,
+    filteredCommands: List<Command>,
+    expandLabel: String,
+    collapseLabel: String,
+    onToggleExpandAll: () -> Unit
+) {
+    val searchLabel = stringResource(R.string.commands_search_hint)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .semantics { contentDescription = searchLabel },
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier.weight(1f),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = searchLabel,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            // Clear button — visible when there is a search query
+            if (searchQuery.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.commands_search_close),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clickable(interactionSource = null, indication = null) {
+                            onQueryChange("")
+                        }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            // Expand/collapse all toggle
+            Icon(
+                imageVector = if (expandedIds.isEmpty()) Icons.Default.List
+                              else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expandedIds.isEmpty()) expandLabel else collapseLabel,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable(interactionSource = null, indication = null) {
+                        onToggleExpandAll()
+                    }
+            )
+        }
+    }
+}
+
+/**
+ * Compact command list item — shows only the trigger by default.
+ * Tap to expand and see the prompt/description + edit/delete actions.
+ * The undo command is always visible but never editable.
+ *
+ * @param cmd The command to display.
+ * @param isExpanded Whether this command's details are visible.
+ * @param isUndoCommand True if this is the system undo command.
+ * @param commandManager Used to check if the command is undeletable.
+ * @param collapseLabel Accessibility label for collapsing.
+ * @param expandLabel Accessibility label for expanding.
+ * @param onToggleExpand Callback to toggle expand/collapse.
+ * @param onEdit Callback when the edit action is tapped.
+ * @param onDelete Callback when the delete action is tapped.
+ */
+@Composable
+private fun CompactCommandItem(
+    cmd: Command,
+    isExpanded: Boolean,
+    isUndoCommand: Boolean,
+    commandManager: CommandManager,
+    collapseLabel: String,
+    expandLabel: String,
+    onToggleExpand: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    SlateItemCard(
+        modifier = Modifier.clickable(
+            interactionSource = null,
+            indication = null,
+            onClickLabel = if (isExpanded) collapseLabel else expandLabel
+        ) { onToggleExpand() }
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            // Header row — trigger + badges
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = cmd.trigger,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (cmd.isBuiltIn) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = if (cmd.isOverridden) stringResource(R.string.commands_modified)
+                               else stringResource(R.string.commands_built_in),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (cmd.isOverridden) MaterialTheme.colorScheme.tertiary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (cmd.type == CommandType.TEXT_REPLACER) {
+                        Text(
+                            text = stringResource(R.string.commands_type_replacer),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+            }
+
+            // Expanded details — prompt, description, and action buttons
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(
+                    animationSpec = tween(250),
+                    expandFrom = Alignment.Top
+                ) + fadeIn(tween(200)),
+                exit = shrinkVertically(
+                    animationSpec = tween(250),
+                    shrinkTowards = Alignment.Top
+                ) + fadeOut(tween(150))
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = cmd.description.ifBlank {
+                            if (cmd.prompt.length > 80) cmd.prompt.take(77) + "…" else cmd.prompt
+                        },
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+
+                    // Action buttons — hidden for undo command
+                    if (!isUndoCommand) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Edit action — available for all non-undo commands
+                            Text(
+                                text = stringResource(R.string.commands_edit_command),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable(
+                                    interactionSource = null,
+                                    indication = null
+                                ) { onEdit() }
+                            )
+
+                            // Delete action — hidden for undeletable built-ins
+                            val isUndeletable = cmd.builtInKey != null &&
+                                commandManager.isUndeletable(cmd.builtInKey)
+                            if (!isUndeletable) {
+                                Text(
+                                    text = " | ",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = stringResource(R.string.commands_delete_command),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.clickable(
+                                        interactionSource = null,
+                                        indication = null
+                                    ) { onDelete() }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Collapsible form card for adding or editing commands.
  * Shows type selector only for custom commands, translate hint for translate,
- * and a "Reset to Default" button for overridden built-in commands.
+ * and a \"Reset to Default\" button for overridden built-in commands.
+ *
+ * @param isFormExpanded Whether the form body is visible.
+ * @param chevronRotation Current rotation angle of the chevron icon.
+ * @param editingTrigger Trigger of the command being edited, or null.
+ * @param editingBuiltInKey Built-in key of the command being edited, or null.
+ * @param trigger Current trigger text in the form.
+ * @param prompt Current prompt text in the form.
+ * @param description Current description text in the form.
+ * @param selectedType Currently selected command type.
+ * @param errorMessage Error message to display, or null.
+ * @param prefix The current trigger prefix character.
+ * @param collapseLabel Accessibility label for collapsing.
+ * @param expandLabel Accessibility label for expanding.
+ * @param commandManager Used to check override state.
+ * @param onToggleExpand Callback to toggle form visibility.
+ * @param onTriggerChange Callback when trigger text changes.
+ * @param onPromptChange Callback when prompt text changes.
+ * @param onDescriptionChange Callback when description text changes.
+ * @param onTypeChange Callback when command type changes.
+ * @param onCancel Callback to cancel editing.
+ * @param onResetRequest Callback to request a built-in reset.
+ * @param onSave Callback to save the command.
+ * @param onSaveEnabled Whether the save button should be enabled.
  */
 @Composable
 private fun CommandFormCard(
@@ -359,15 +652,14 @@ private fun CommandFormCard(
             Text(
                 text = formTitle,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.sp,
+                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.rotate(chevronRotation)
+                modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
             )
         }
 
@@ -376,9 +668,9 @@ private fun CommandFormCard(
             enter = expandVertically(
                 animationSpec = tween(250),
                 expandFrom = Alignment.Top
-            ) + fadeIn(tween(200, delayMillis = 50)),
+            ) + fadeIn(tween(200)),
             exit = shrinkVertically(
-                animationSpec = tween(200),
+                animationSpec = tween(250),
                 shrinkTowards = Alignment.Top
             ) + fadeOut(tween(150))
         ) {
@@ -442,7 +734,7 @@ private fun CommandFormCard(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
+                SlateTextField(
                     value = prompt,
                     onValueChange = onPromptChange,
                     label = {
@@ -451,17 +743,11 @@ private fun CommandFormCard(
                             else stringResource(R.string.commands_replacement_label)
                         )
                     },
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    )
+                    singleLine = false,
+                    modifier = Modifier.height(100.dp)
                 )
 
-                // Description field — optional, shown below prompt
+                // Description field — optional
                 Spacer(modifier = Modifier.height(8.dp))
                 SlateTextField(
                     value = description,
@@ -515,125 +801,6 @@ private fun CommandFormCard(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * A single command item in the active commands list.
- * Shows trigger, prompt, type chips, and edit/delete action buttons.
- *
- * @param cmd The command to display.
- * @param commandManager Used to check if the command is undeletable.
- * @param onEdit Callback when the edit button is tapped.
- * @param onDelete Callback when the delete button is tapped.
- */
-@Composable
-private fun CommandListItem(
-    cmd: Command,
-    commandManager: CommandManager,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    SlateItemCard {
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = cmd.trigger,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (cmd.isBuiltIn) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (cmd.isOverridden) stringResource(R.string.commands_modified)
-                               else stringResource(R.string.commands_built_in),
-                        fontSize = 11.sp,
-                        color = if (cmd.isOverridden) MaterialTheme.colorScheme.tertiary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (cmd.type == CommandType.TEXT_REPLACER) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.commands_type_replacer),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = cmd.description.ifBlank {
-                    if (cmd.prompt.length > 80) cmd.prompt.take(77) + "…" else cmd.prompt
-                },
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        // Edit button — always shown on all commands
-        IconButton(
-            onClick = onEdit,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Edit,
-                contentDescription = stringResource(R.string.commands_edit_command),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        // Delete button — hidden for undeletable built-ins (translate, undo)
-        val showDelete = cmd.builtInKey == null ||
-            !commandManager.isUndeletable(cmd.builtInKey)
-        if (showDelete) {
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.commands_delete_command),
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-/**
- * A deleted built-in command item shown in the "Deleted" section.
- * Displays with muted colors and a "Restore" button.
- *
- * @param cmd The deleted command to display.
- * @param onRestore Callback when the restore button is tapped.
- */
-@Composable
-private fun DeletedCommandItem(
-    cmd: Command,
-    onRestore: () -> Unit
-) {
-    SlateItemCard {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = cmd.trigger,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = cmd.description.ifBlank {
-                    if (cmd.prompt.length > 80) cmd.prompt.take(77) + "…" else cmd.prompt
-                },
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
-        }
-        TextButton(onClick = onRestore) {
-            Text(stringResource(R.string.commands_restore_command))
         }
     }
 }

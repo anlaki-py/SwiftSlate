@@ -86,8 +86,13 @@
     <string name="backup_import_confirm">这将替换所有现有的自定义命令。是否继续？</string>
     <string name="backup_import_cancel">取消</string>
     <string name="settings_check_updates">检查更新</string>
+    <string name="settings_made_by">制作者</string>
     <string name="commands_collapse">收起</string>
     <string name="commands_expand">展开</string>
+    <string name="commands_search_hint">搜索命令</string>
+    <string name="commands_search_close">清除搜索</string>
+    <string name="commands_search_empty">未找到命令</string>
+    <string name="commands_error_conflict">与 \'%1$s\' 冲突</string>
 
     <!-- Delete confirmation -->
     <string name="delete_confirm_command_title">删除此命令？</string>

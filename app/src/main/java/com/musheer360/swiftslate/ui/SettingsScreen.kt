@@ -464,6 +464,26 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
             )
         }
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.settings_made_by) + " ",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "anlaki",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(interactionSource = null, indication = null) {
+                    uriHandler.openUri("https://anlaki.dev")
+                }
+            )
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
     }
 

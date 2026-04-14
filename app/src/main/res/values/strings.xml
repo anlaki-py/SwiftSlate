@@ -87,8 +87,13 @@
     <string name="backup_import_confirm">This will replace all your existing custom commands. Continue?</string>
     <string name="backup_import_cancel">Cancel</string>
     <string name="settings_check_updates">Check for updates</string>
+    <string name="settings_made_by">Made by</string>
     <string name="commands_collapse">Collapse</string>
     <string name="commands_expand">Expand</string>
+    <string name="commands_search_hint">Search commands</string>
+    <string name="commands_search_close">Clear search</string>
+    <string name="commands_search_empty">No commands found</string>
+    <string name="commands_error_conflict">Conflicts with \'%1$s\'</string>
 
     <!-- Delete confirmation -->
     <string name="delete_confirm_command_title">Delete this command?</string>

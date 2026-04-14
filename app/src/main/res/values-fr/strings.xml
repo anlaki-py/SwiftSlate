@@ -86,8 +86,13 @@
     <string name="backup_import_confirm">Cela remplacera toutes vos commandes personnalisées existantes. Continuer ?</string>
     <string name="backup_import_cancel">Annuler</string>
     <string name="settings_check_updates">Vérifier les mises à jour</string>
+    <string name="settings_made_by">Créé par</string>
     <string name="commands_collapse">Réduire</string>
     <string name="commands_expand">Développer</string>
+    <string name="commands_search_hint">Rechercher des commandes</string>
+    <string name="commands_search_close">Effacer la recherche</string>
+    <string name="commands_search_empty">Aucune commande trouvée</string>
+    <string name="commands_error_conflict">Conflit avec \'%1$s\'</string>
 
     <!-- Delete confirmation -->
     <string name="delete_confirm_command_title">Supprimer cette commande ?</string>
