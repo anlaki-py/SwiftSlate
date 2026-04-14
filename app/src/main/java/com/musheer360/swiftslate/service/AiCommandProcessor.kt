@@ -197,7 +197,8 @@ class AiCommandProcessor(
                 text = originalText,
                 apiKey = key,
                 model = config.model,
-                temperature = DEFAULT_TEMPERATURE,
+                temperature = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                    .getFloat("temperature", DEFAULT_TEMPERATURE.toFloat()).toDouble(),
                 endpoint = config.endpoint
             )
 

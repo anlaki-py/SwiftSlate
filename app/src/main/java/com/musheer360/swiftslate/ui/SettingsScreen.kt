@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.BuildConfig
 import com.musheer360.swiftslate.R
@@ -64,6 +65,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
 
     var triggerPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
     var prefixError by remember { mutableStateOf<String?>(null) }
+    var temperature by remember { mutableStateOf(prefs.getFloat("temperature", 0.5f)) }
 
     val prefixErrorLength = stringResource(R.string.settings_prefix_error_length)
     val prefixErrorWhitespace = stringResource(R.string.settings_prefix_error_whitespace)
@@ -391,6 +393,52 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SectionHeader(stringResource(R.string.settings_temperature_title))
+        SlateCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_temperature_desc),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = String.format("%.1f", temperature),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Slider(
+                value = temperature,
+                onValueChange = {
+                    val newVal = Math.round(it * 10) / 10f
+                    if (newVal != temperature) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        temperature = newVal
+                    }
+                },
+                onValueChangeFinished = {
+                    prefs.edit().putFloat("temperature", temperature).apply()
+                },
+                valueRange = 0f..2f,
+                steps = 19,
+                modifier = Modifier.fillMaxWidth().height(26.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.outline
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))

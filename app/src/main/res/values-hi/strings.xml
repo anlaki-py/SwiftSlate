@@ -73,6 +73,8 @@
     <string name="settings_prefix_error_alphanumeric">अक्षर या अंक नहीं हो सकता</string>
     <string name="settings_endpoint_error_scheme">https:// से शुरू होना चाहिए</string>
     <string name="settings_endpoint_error_spaces">URL में रिक्त स्थान नहीं हो सकते</string>
+    <string name="settings_temperature_title">तापमान</string>
+    <string name="settings_temperature_desc">AI प्रतिक्रिया की रचनात्मकता</string>
 
     <!-- Backup -->
     <string name="backup_title">बैकअप &amp; पुनर्स्थापना</string>

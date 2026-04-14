@@ -7,6 +7,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -310,7 +311,7 @@ fun CommandsScreen(commandManager: CommandManager) {
                     refreshCommands()
                     commandToDelete = null
                 }) {
-                    Text(stringResource(R.string.delete_confirm_button), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete_confirm_button), color = MaterialTheme.colorScheme.onSurface)
                 }
             },
             dismissButton = {
@@ -496,8 +497,7 @@ private fun CompactCommandItem(
                                else stringResource(R.string.commands_built_in),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (cmd.isOverridden) MaterialTheme.colorScheme.tertiary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
@@ -505,7 +505,7 @@ private fun CompactCommandItem(
                         Text(
                             text = stringResource(R.string.commands_type_replacer),
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.tertiary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -536,38 +536,48 @@ private fun CompactCommandItem(
                     // Action buttons — hidden for undo command
                     if (!isUndoCommand) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Edit action — available for all non-undo commands
-                            Text(
-                                text = stringResource(R.string.commands_edit_command),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.clickable(
-                                    interactionSource = null,
-                                    indication = null
-                                ) { onEdit() }
-                            )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Edit button
+                            OutlinedButton(
+                                onClick = { onEdit() },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.commands_edit_command),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
 
-                            // Delete action — hidden for undeletable built-ins
+                            // Delete button — hidden for undeletable built-ins
                             val isUndeletable = cmd.builtInKey != null &&
                                 commandManager.isUndeletable(cmd.builtInKey)
                             if (!isUndeletable) {
-                                Text(
-                                    text = " | ",
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = stringResource(R.string.commands_delete_command),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.clickable(
-                                        interactionSource = null,
-                                        indication = null
-                                    ) { onDelete() }
-                                )
+                                OutlinedButton(
+                                    onClick = { onDelete() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.commands_delete_command),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }

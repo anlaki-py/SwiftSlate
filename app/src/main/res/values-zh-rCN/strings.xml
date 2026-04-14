@@ -73,6 +73,8 @@
     <string name="settings_prefix_error_alphanumeric">不能为字母或数字</string>
     <string name="settings_endpoint_error_scheme">必须以 https:// 开头</string>
     <string name="settings_endpoint_error_spaces">URL 不能包含空格</string>
+    <string name="settings_temperature_title">温度</string>
+    <string name="settings_temperature_desc">AI 回复的创造性</string>
 
     <!-- Backup -->
     <string name="backup_title">备份 &amp; 恢复</string>
