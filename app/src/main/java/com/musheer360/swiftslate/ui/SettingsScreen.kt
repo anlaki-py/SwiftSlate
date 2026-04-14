@@ -184,7 +184,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             providerType = ProviderType.GEMINI
-                            prefs.edit().putString("provider_type", ProviderType.GEMINI).remove("structured_output_disabled_at").apply()
+                            prefs.edit().putString("provider_type", ProviderType.GEMINI).apply()
                             providerExpanded = false
                         }
                     )
@@ -193,7 +193,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             providerType = ProviderType.GROQ
-                            prefs.edit().putString("provider_type", ProviderType.GROQ).remove("structured_output_disabled_at").apply()
+                            prefs.edit().putString("provider_type", ProviderType.GROQ).apply()
                             providerExpanded = false
                         }
                     )
@@ -202,7 +202,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             providerType = ProviderType.CUSTOM
-                            prefs.edit().putString("provider_type", ProviderType.CUSTOM).remove("structured_output_disabled_at").apply()
+                            prefs.edit().putString("provider_type", ProviderType.CUSTOM).apply()
                             providerExpanded = false
                         }
                     )
@@ -237,7 +237,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     selectedModel = model
-                                    prefs.edit().putString("model", model).remove("structured_output_disabled_at").apply()
+                                    prefs.edit().putString("model", model).apply()
                                     modelExpanded = false
                                 }
                             )
@@ -270,7 +270,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     groqModel = model
-                                    prefs.edit().putString("groq_model", model).remove("structured_output_disabled_at").apply()
+                                    prefs.edit().putString("groq_model", model).apply()
                                     groqModelExpanded = false
                                 }
                             )
@@ -306,7 +306,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                             saveEndpointJob?.cancel()
                             saveEndpointJob = scope.launch {
                                 delay(500)
-                                prefs.edit().putString("custom_endpoint", it).remove("structured_output_disabled_at").apply()
+                                prefs.edit().putString("custom_endpoint", it).apply()
                             }
                         }
                     },
@@ -340,7 +340,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         saveModelJob?.cancel()
                         saveModelJob = scope.launch {
                             delay(500)
-                            prefs.edit().putString("custom_model", it).remove("structured_output_disabled_at").apply()
+                            prefs.edit().putString("custom_model", it).apply()
                         }
                     },
                     placeholder = { Text(stringResource(R.string.settings_model_placeholder)) }

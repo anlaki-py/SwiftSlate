@@ -28,7 +28,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.api.GeminiClient
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.manager.KeyManager
 import com.musheer360.swiftslate.model.ProviderType
@@ -51,7 +50,6 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
     var testResult by remember { mutableStateOf<String?>(null) }
     var testSuccess by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val geminiClient = remember { GeminiClient() }
     val openAIClient = remember { OpenAICompatibleClient() }
 
     val validAddedMsg = stringResource(R.string.keys_valid_added)
@@ -111,7 +109,10 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                                     providerType == ProviderType.CUSTOM && customEndpoint.isNotBlank() ->
                                         openAIClient.validateKey(trimmedKey, customEndpoint)
                                     else ->
-                                        geminiClient.validateKey(trimmedKey)
+                                        openAIClient.validateKey(
+                                            trimmedKey,
+                                            "https://generativelanguage.googleapis.com/v1beta/openai"
+                                        )
                                 }
                             }
                             isTesting = false

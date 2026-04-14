@@ -8,7 +8,6 @@ import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
-import com.musheer360.swiftslate.api.GeminiClient
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
@@ -73,7 +72,7 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         textReplacer = TextReplacer(applicationContext, handler)
         toastManager = OverlayToastManager(applicationContext, handler)
         aiCommandProcessor = AiCommandProcessor(
-            applicationContext, keyManager, GeminiClient(), OpenAICompatibleClient(),
+            applicationContext, keyManager, OpenAICompatibleClient(),
             textReplacer, toastManager, serviceScope, handler
         )
         updateTriggers()

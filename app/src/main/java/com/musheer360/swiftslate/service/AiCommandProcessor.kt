@@ -6,7 +6,6 @@ import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityNodeInfo
 import com.musheer360.swiftslate.api.ApiError
 import com.musheer360.swiftslate.api.ApiException
-import com.musheer360.swiftslate.api.GeminiClient
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.manager.KeyManager
 import com.musheer360.swiftslate.model.Command
@@ -27,12 +26,14 @@ import kotlinx.coroutines.withTimeout
 /**
  * Handles AI-powered text transformation commands. Manages provider selection,
  * multi-key rotation with automatic fallback on rate-limit or invalid-key errors,
- * an inline progress spinner, and structured-output negotiation.
+ * and an inline progress spinner.
+ *
+ * All providers (Gemini, Groq, custom) are routed through [OpenAICompatibleClient]
+ * using the standardised `/chat/completions` endpoint with strict structured output.
  *
  * @param context Application context for reading SharedPreferences.
  * @param keyManager Provides API keys and tracks rate-limit/invalid state.
- * @param geminiClient Client for the Gemini API.
- * @param openAIClient Client for OpenAI-compatible APIs (Groq, custom endpoints).
+ * @param openAIClient Unified client for all OpenAI-compatible APIs.
  * @param textReplacer Handles text replacement in accessibility nodes.
  * @param toastManager Displays overlay toast notifications.
  * @param serviceScope Coroutine scope tied to the service lifecycle.
@@ -41,7 +42,6 @@ import kotlinx.coroutines.withTimeout
 class AiCommandProcessor(
     private val context: Context,
     private val keyManager: KeyManager,
-    private val geminiClient: GeminiClient,
     private val openAIClient: OpenAICompatibleClient,
     private val textReplacer: TextReplacer,
     private val toastManager: OverlayToastManager,
@@ -51,6 +51,14 @@ class AiCommandProcessor(
 
     private companion object {
         const val DEFAULT_TEMPERATURE = 0.5
+
+        /** Gemini's official OpenAI-compatible base URL. */
+        const val GEMINI_OPENAI_ENDPOINT =
+            "https://generativelanguage.googleapis.com/v1beta/openai"
+
+        /** Groq's OpenAI-compatible base URL. */
+        const val GROQ_ENDPOINT = "https://api.groq.com/openai/v1"
+
         val SPINNER_FRAMES = arrayOf("◐", "◓", "◑", "◒")
     }
 
@@ -96,18 +104,12 @@ class AiCommandProcessor(
                 return@launch
             }
 
-            val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-            val useStructuredOutput = run {
-                val disabledAt = prefs.getLong("structured_output_disabled_at", 0L)
-                System.currentTimeMillis() - disabledAt > 86_400_000L
-            }
-
             var spinnerJob: Job? = null
             try {
                 withTimeout(90_000) {
                     spinnerJob = executeWithKeyRotation(
                         source, text, command, providerConfig,
-                        useStructuredOutput, callbacks, prefs, spinnerJob
+                        callbacks, spinnerJob
                     )
                 }
             } catch (e: TimeoutCancellationException) {
@@ -144,38 +146,42 @@ class AiCommandProcessor(
      */
     private fun resolveProvider(): ProviderConfig? {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val type = prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
+        val type = prefs.getString("provider_type", ProviderType.GEMINI)
+            ?: ProviderType.GEMINI
 
         return when (type) {
+            ProviderType.GEMINI -> ProviderConfig(
+                type = ProviderType.GEMINI,
+                model = prefs.getString("model", "gemini-2.5-flash-lite")
+                    ?: "gemini-2.5-flash-lite",
+                endpoint = GEMINI_OPENAI_ENDPOINT
+            )
+            ProviderType.GROQ -> ProviderConfig(
+                type = ProviderType.GROQ,
+                model = prefs.getString("groq_model", "llama-3.3-70b-versatile")
+                    ?: "llama-3.3-70b-versatile",
+                endpoint = GROQ_ENDPOINT
+            )
             ProviderType.CUSTOM -> {
                 val model = prefs.getString("custom_model", "") ?: ""
                 val endpoint = prefs.getString("custom_endpoint", "") ?: ""
                 if (model.isBlank() || endpoint.isBlank()) null
-                else ProviderConfig(type, model, endpoint)
+                else ProviderConfig(type, model, endpoint.trimEnd('/'))
             }
-            ProviderType.GROQ -> ProviderConfig(
-                type,
-                prefs.getString("groq_model", "llama-3.3-70b-versatile")
-                    ?: "llama-3.3-70b-versatile",
-                "https://api.groq.com/openai/v1"
-            )
-            else -> ProviderConfig(
-                type,
-                prefs.getString("model", "gemini-2.5-flash-lite") ?: "gemini-2.5-flash-lite",
-                ""
-            )
+            else -> null
         }
     }
 
-    /** Tries each available API key in turn, stopping on success or non-retryable error. */
+    /**
+     * Tries each available API key in turn, stopping on success or
+     * a non-retryable error. All providers use [openAIClient].
+     */
     private suspend fun executeWithKeyRotation(
         source: AccessibilityNodeInfo,
         originalText: String,
         command: Command,
         config: ProviderConfig,
-        useStructuredOutput: Boolean,
         callbacks: ProcessingCallbacks,
-        prefs: android.content.SharedPreferences,
         initialSpinnerJob: Job?
     ): Job? {
         var spinnerJob = initialSpinnerJob
@@ -186,30 +192,23 @@ class AiCommandProcessor(
             val key = keyManager.getNextKey() ?: break
             if (spinnerJob == null) spinnerJob = startInlineSpinner(source, originalText)
 
-            val isGroq = config.type == ProviderType.GROQ
-            val result = if (isGroq || config.type == ProviderType.CUSTOM) {
-                openAIClient.generate(
-                    command.prompt, originalText, key, config.model,
-                    DEFAULT_TEMPERATURE, config.endpoint,
-                    useStructuredOutput = false,
-                    useJsonObjectMode = isGroq && useStructuredOutput
-                )
-            } else {
-                geminiClient.generate(
-                    command.prompt, originalText, key, config.model,
-                    DEFAULT_TEMPERATURE, useStructuredOutput
-                )
-            }
+            val result = openAIClient.generate(
+                prompt = command.prompt,
+                text = originalText,
+                apiKey = key,
+                model = config.model,
+                temperature = DEFAULT_TEMPERATURE,
+                endpoint = config.endpoint
+            )
 
             if (result.isSuccess) {
                 spinnerJob?.cancelAndJoin(); spinnerJob = null
                 callbacks.onOriginalTextCaptured(originalText, sourceId(source))
                 val gen = result.getOrThrow()
                 textReplacer.replaceText(source, gen.text)
-                HapticHelper.performHapticFeedback(context, handler, HapticFeedbackConstants.CONFIRM)
-                if (gen.structuredOutputFailed) {
-                    prefs.edit().putLong("structured_output_disabled_at", System.currentTimeMillis()).apply()
-                }
+                HapticHelper.performHapticFeedback(
+                    context, handler, HapticFeedbackConstants.CONFIRM
+                )
                 succeeded = true; break
             }
 
@@ -228,13 +227,18 @@ class AiCommandProcessor(
         if (!succeeded) {
             spinnerJob?.cancelAndJoin(); spinnerJob = null
             textReplacer.replaceText(source, originalText)
-            HapticHelper.performHapticFeedback(context, handler, HapticFeedbackConstants.REJECT)
+            HapticHelper.performHapticFeedback(
+                context, handler, HapticFeedbackConstants.REJECT
+            )
             showFailureToast(lastErrorMsg)
         }
         return spinnerJob
     }
 
-    /** Shows an error toast using key-state context when no explicit error message exists. */
+    /**
+     * Shows an error toast using key-state context when no explicit
+     * error message exists.
+     */
     private suspend fun showFailureToast(lastErrorMsg: String?) {
         if (lastErrorMsg != null) {
             toastManager.showToast(ErrorMessageMapper.map(lastErrorMsg))
@@ -253,7 +257,13 @@ class AiCommandProcessor(
         }
     }
 
-    /** Animates an inline spinner in the text field during AI processing. */
+    /**
+     * Animates an inline spinner in the text field during AI processing.
+     *
+     * @param source The accessibility node to animate.
+     * @param baseText The user's original text shown before the spinner.
+     * @return A [Job] that runs the animation loop.
+     */
     private fun startInlineSpinner(source: AccessibilityNodeInfo, baseText: String): Job {
         return serviceScope.launch(Dispatchers.Main) {
             var frameIndex = 0
@@ -265,6 +275,16 @@ class AiCommandProcessor(
         }
     }
 
-    /** Holds resolved provider settings. */
-    private data class ProviderConfig(val type: String, val model: String, val endpoint: String)
+    /**
+     * Holds resolved provider settings.
+     *
+     * @param type The provider identifier constant from [ProviderType].
+     * @param model The model name to send in the request.
+     * @param endpoint The base URL for the OpenAI-compatible API.
+     */
+    private data class ProviderConfig(
+        val type: String,
+        val model: String,
+        val endpoint: String
+    )
 }

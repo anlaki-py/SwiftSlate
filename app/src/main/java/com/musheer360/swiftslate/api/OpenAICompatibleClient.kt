@@ -10,14 +10,26 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 
+/**
+ * Unified client for any OpenAI-compatible chat-completions API.
+ *
+ * Handles Gemini (via its OpenAI-compat layer), Groq, and arbitrary
+ * custom endpoints through a single code path. Always requests
+ * structured output with `strict: true` for reliable JSON adherence.
+ */
 class OpenAICompatibleClient {
 
-    companion object {
-        private val HTTP_CODE_REGEX = Regex("^HTTP_(\\d+):")
-        private val HTTP_PREFIX_REGEX = Regex("^HTTP_\\d+:\\s*")
-    }
-
-    suspend fun validateKey(apiKey: String, endpoint: String): Result<String> = withContext(Dispatchers.IO) {
+    /**
+     * Validates an API key by hitting the provider's `/models` endpoint.
+     *
+     * @param apiKey Bearer token to validate.
+     * @param endpoint Base URL of the provider (e.g. `https://api.groq.com/openai/v1`).
+     * @return [Result.success] with `"Valid"` or [Result.failure] with a user-facing message.
+     */
+    suspend fun validateKey(
+        apiKey: String,
+        endpoint: String
+    ): Result<String> = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         try {
             val baseUrl = endpoint.trimEnd('/')
@@ -30,6 +42,7 @@ class OpenAICompatibleClient {
 
             val responseCode = connection.responseCode
             if (responseCode in 200..299) {
+                // Drain the response body to free the connection
                 connection.inputStream?.use { stream ->
                     val buf = ByteArray(1024)
                     while (stream.read(buf) != -1) { /* drain */ }
@@ -58,63 +71,61 @@ class OpenAICompatibleClient {
         }
     }
 
+    /**
+     * Sends a text-transformation request to the chat-completions endpoint.
+     *
+     * Uses `response_format: json_schema` with `strict: true` so the model
+     * returns a guaranteed `{"text": "..."}` object. Falls back to raw text
+     * extraction if JSON parsing fails (e.g. on providers without schema support).
+     *
+     * Retries once on transient network errors (timeout, DNS, connection refused).
+     *
+     * @param prompt The transformation instruction (appended to the system prompt).
+     * @param text The user's input text to transform.
+     * @param apiKey Bearer token for the provider.
+     * @param model Model identifier (e.g. `gemini-2.5-flash-lite`, `llama-3.3-70b-versatile`).
+     * @param temperature Sampling temperature.
+     * @param endpoint Base URL of the provider.
+     * @return [GenerateResult] on success, or a descriptive failure.
+     */
     suspend fun generate(
         prompt: String,
         text: String,
         apiKey: String,
         model: String,
         temperature: Double,
-        endpoint: String,
-        useStructuredOutput: Boolean = false,
-        useJsonObjectMode: Boolean = false
+        endpoint: String
     ): Result<GenerateResult> = withContext(Dispatchers.IO) {
-        var soFailed = false
-
-        var result = doGenerate(prompt, text, apiKey, model, temperature, endpoint, useStructuredOutput, useJsonObjectMode)
+        var result = doGenerate(prompt, text, apiKey, model, temperature, endpoint)
 
         // Retry once for transient network errors
         if (result.isFailure && result.exceptionOrNull().isTransientNetwork()) {
             kotlinx.coroutines.delay(1000)
-            result = doGenerate(prompt, text, apiKey, model, temperature, endpoint, useStructuredOutput, useJsonObjectMode)
+            result = doGenerate(prompt, text, apiKey, model, temperature, endpoint)
         }
 
-        val finalResult = if (useStructuredOutput && result.isFailure) {
-            val msg = result.exceptionOrNull()?.message ?: ""
-            val code = HTTP_CODE_REGEX.find(msg)?.groupValues?.get(1)?.toIntOrNull()
-            if (code == 400 || code == 422) {
-                val retry = doGenerate(prompt, text, apiKey, model, temperature, endpoint, false, false)
-                if (retry.isSuccess) soFailed = true
-                stripHttpPrefix(retry.map { it.first })
-            } else {
-                stripHttpPrefix(result.map { it.first })
-            }
-        } else {
-            if (result.isSuccess && result.getOrNull()?.second == true) soFailed = true
-            stripHttpPrefix(result.map { it.first })
-        }
-
-        finalResult.map { GenerateResult(it, soFailed) }
+        result.map { GenerateResult(it) }
     }
 
-    private fun stripHttpPrefix(result: Result<String>): Result<String> {
-        if (result.isFailure) {
-            val msg = result.exceptionOrNull()?.message ?: ""
-            val cleaned = msg.replaceFirst(HTTP_PREFIX_REGEX, "")
-            if (cleaned != msg) return Result.failure(Exception(cleaned))
-        }
-        return result
-    }
-
+    /**
+     * Executes a single chat-completions request with structured output.
+     *
+     * @param prompt Transformation instruction.
+     * @param text Input text to transform.
+     * @param apiKey Bearer authentication token.
+     * @param model Provider model identifier.
+     * @param temperature Sampling temperature (0.0–2.0).
+     * @param endpoint Provider base URL.
+     * @return The extracted text on success, or a typed failure.
+     */
     private fun doGenerate(
         prompt: String,
         text: String,
         apiKey: String,
         model: String,
         temperature: Double,
-        endpoint: String,
-        withStructured: Boolean,
-        withJsonObject: Boolean = false
-    ): Result<Pair<String, Boolean>> {
+        endpoint: String
+    ): Result<String> {
         var connection: HttpURLConnection? = null
         return try {
             val baseUrl = endpoint.trimEnd('/')
@@ -127,18 +138,12 @@ class OpenAICompatibleClient {
             connection.connectTimeout = 30_000
             connection.readTimeout = 60_000
 
-            val systemContent = if (withJsonObject) {
-                ApiClientUtils.SYSTEM_PROMPT_PREFIX + prompt + " Respond with JSON: {\"text\": \"your result\"}"
-            } else {
-                ApiClientUtils.SYSTEM_PROMPT_PREFIX + prompt
-            }
-
             val jsonBody = JSONObject().apply {
                 put("model", model)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "system")
-                        put("content", systemContent)
+                        put("content", ApiClientUtils.SYSTEM_PROMPT_PREFIX + prompt)
                     })
                     put(JSONObject().apply {
                         put("role", "user")
@@ -146,27 +151,25 @@ class OpenAICompatibleClient {
                     })
                 })
                 put("temperature", temperature)
-                if (withStructured) {
-                    put("response_format", JSONObject().apply {
-                        put("type", "json_schema")
-                        put("json_schema", JSONObject().apply {
-                            put("name", "text_output")
-                            put("schema", JSONObject().apply {
-                                put("type", "object")
-                                put("properties", JSONObject().apply {
-                                    put("text", JSONObject().apply {
-                                        put("type", "string")
-                                    })
+
+                // Structured output with strict schema enforcement
+                put("response_format", JSONObject().apply {
+                    put("type", "json_schema")
+                    put("json_schema", JSONObject().apply {
+                        put("name", "text_output")
+                        put("strict", true)
+                        put("schema", JSONObject().apply {
+                            put("type", "object")
+                            put("properties", JSONObject().apply {
+                                put("text", JSONObject().apply {
+                                    put("type", "string")
                                 })
-                                put("required", JSONArray().apply { put("text") })
                             })
+                            put("required", JSONArray().apply { put("text") })
+                            put("additionalProperties", false)
                         })
                     })
-                } else if (withJsonObject) {
-                    put("response_format", JSONObject().apply {
-                        put("type", "json_object")
-                    })
-                }
+                })
             }
 
             connection.outputStream.use { os ->
@@ -193,34 +196,28 @@ class OpenAICompatibleClient {
                         return Result.failure(Exception("Model returned empty response"))
                     }
 
-                    if (withStructured || withJsonObject) {
-                        val (extracted, _) = ApiClientUtils.tryExtractStructuredText(resultText)
-                        if (extracted != null) return Result.success(Pair(extracted, false))
-                        if (withStructured) {
-                            resultText = ApiClientUtils.stripMarkdownFences(resultText)
-                            if (finishReason == "length") resultText += "\n\n[Note: Response may be truncated]"
-                            return Result.success(Pair(resultText, true))
-                        }
-                    }
+                    // Try structured JSON extraction first
+                    val (extracted, _) = ApiClientUtils.tryExtractStructuredText(resultText)
+                    if (extracted != null) return Result.success(extracted)
 
+                    // Fall back to raw text (strip markdown fences if present)
                     resultText = ApiClientUtils.stripMarkdownFences(resultText)
                     if (finishReason == "length") {
                         resultText += "\n\n[Note: Response may be truncated]"
                     }
-                    Result.success(Pair(resultText, false))
+                    Result.success(resultText)
                 } else {
                     Result.failure(Exception("No choices found in response"))
                 }
             } else if (responseCode == 429) {
                 val retryAfter = connection.getHeaderField("Retry-After")
                 val seconds = retryAfter?.toIntOrNull()
-                val msg = if (seconds != null) "Rate limit exceeded, retry after ${seconds}s" else "Rate limit exceeded"
+                val msg = if (seconds != null) {
+                    "Rate limit exceeded, retry after ${seconds}s"
+                } else {
+                    "Rate limit exceeded"
+                }
                 Result.failure(ApiException(ApiError.RateLimit(msg, seconds), msg))
-            } else if (responseCode == 400 || responseCode == 422) {
-                val errorBody = ApiClientUtils.readErrorBody(connection)
-                val apiMessage = ApiClientUtils.extractApiErrorMessage(errorBody)
-                val detail = if (apiMessage.isNotEmpty()) apiMessage else "Bad request"
-                Result.failure(Exception("HTTP_${responseCode}: $detail"))
             } else if (responseCode == 401 || responseCode == 403) {
                 val errorBody = ApiClientUtils.readErrorBody(connection)
                 val apiMessage = ApiClientUtils.extractApiErrorMessage(errorBody)
@@ -228,17 +225,29 @@ class OpenAICompatibleClient {
                 Result.failure(ApiException(ApiError.InvalidKey(detail), detail))
             } else {
                 val errorBody = ApiClientUtils.readErrorBody(connection)
-                val detail = ApiClientUtils.sanitizeErrorForUser(responseCode, errorBody, "Unexpected error")
-                val apiError = if (responseCode in 500..599) ApiError.ServerError(detail) else ApiError.Other(detail)
+                val detail = ApiClientUtils.sanitizeErrorForUser(
+                    responseCode, errorBody, "Unexpected error"
+                )
+                val apiError = if (responseCode in 500..599) {
+                    ApiError.ServerError(detail)
+                } else {
+                    ApiError.Other(detail)
+                }
                 Result.failure(ApiException(apiError, detail))
             }
         } catch (e: Exception) {
             val apiError = when (e) {
                 is ApiException -> e.apiError
-                is SocketTimeoutException, is UnknownHostException, is ConnectException -> ApiError.Network(e.message ?: "Network error")
+                is SocketTimeoutException,
+                is UnknownHostException,
+                is ConnectException -> ApiError.Network(e.message ?: "Network error")
                 else -> ApiError.Other(e.message ?: "Unknown error")
             }
-            if (e is ApiException) Result.failure(e) else Result.failure(ApiException(apiError, e.message ?: "Unknown error"))
+            if (e is ApiException) {
+                Result.failure(e)
+            } else {
+                Result.failure(ApiException(apiError, e.message ?: "Unknown error"))
+            }
         } finally {
             connection?.disconnect()
         }
