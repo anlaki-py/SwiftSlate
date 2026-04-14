@@ -7,8 +7,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -477,10 +479,12 @@ private fun CompactCommandItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // Determine if this command supports actions (undo never does)
     val isUndeletable = cmd.builtInKey != null &&
         commandManager.isUndeletable(cmd.builtInKey)
     val hasActions = !isUndoCommand
+
+    // Long-press action dialog state
+    var showActionDialog by remember { mutableStateOf(false) }
 
     if (hasActions) {
         val dismissState = rememberSwipeToDismissBoxState(
@@ -503,7 +507,7 @@ private fun CompactCommandItem(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = if (direction == SwipeToDismissBoxValue.StartToEnd)
                         Arrangement.Start else Arrangement.End,
@@ -529,16 +533,78 @@ private fun CompactCommandItem(
             enableDismissFromStartToEnd = true,
             enableDismissFromEndToStart = !isUndeletable
         ) {
-            CommandItemContent(cmd, isExpanded, collapseLabel, expandLabel, onToggleExpand)
+            CommandItemContent(
+                cmd = cmd,
+                isExpanded = isExpanded,
+                collapseLabel = collapseLabel,
+                expandLabel = expandLabel,
+                onToggleExpand = onToggleExpand,
+                onLongPress = { showActionDialog = true }
+            )
         }
     } else {
-        // Undo command — no swipe, just the card
-        CommandItemContent(cmd, isExpanded, collapseLabel, expandLabel, onToggleExpand)
+        CommandItemContent(
+            cmd = cmd,
+            isExpanded = isExpanded,
+            collapseLabel = collapseLabel,
+            expandLabel = expandLabel,
+            onToggleExpand = onToggleExpand,
+            onLongPress = {}
+        )
+    }
+
+    // Long-press action modal
+    if (showActionDialog) {
+        AlertDialog(
+            onDismissRequest = { showActionDialog = false },
+            title = { Text(cmd.trigger, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    TextButton(
+                        onClick = { showActionDialog = false; onEdit() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.commands_edit_command),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (!isUndeletable) {
+                        TextButton(
+                            onClick = { showActionDialog = false; onDelete() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.commands_delete_command),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showActionDialog = false }) {
+                    Text(stringResource(R.string.backup_import_cancel))
+                }
+            }
+        )
     }
 }
 
 /**
- * The visual content of a command list item — trigger, badges, expandable description.
+ * The visual content of a command list item — trigger and expandable description.
  * Extracted so both swipeable and non-swipeable items share the same layout.
  *
  * @param cmd The command to display.
@@ -546,53 +612,37 @@ private fun CompactCommandItem(
  * @param collapseLabel Accessibility label for collapsing.
  * @param expandLabel Accessibility label for expanding.
  * @param onToggleExpand Callback to toggle expand/collapse.
+ * @param onLongPress Callback for long-press gesture.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CommandItemContent(
     cmd: Command,
     isExpanded: Boolean,
     collapseLabel: String,
     expandLabel: String,
-    onToggleExpand: () -> Unit
+    onToggleExpand: () -> Unit,
+    onLongPress: () -> Unit
 ) {
     SlateItemCard(
-        modifier = Modifier.clickable(
+        modifier = Modifier.combinedClickable(
             interactionSource = null,
             indication = null,
-            onClickLabel = if (isExpanded) collapseLabel else expandLabel
-        ) { onToggleExpand() }
+            onClickLabel = if (isExpanded) collapseLabel else expandLabel,
+            onClick = { onToggleExpand() },
+            onLongClick = { onLongPress() }
+        )
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            // Header row — trigger + badges
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = cmd.trigger,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (cmd.isBuiltIn) {
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = if (cmd.isOverridden) stringResource(R.string.commands_modified)
-                               else stringResource(R.string.commands_built_in),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                    if (cmd.type == CommandType.TEXT_REPLACER) {
-                        Text(
-                            text = stringResource(R.string.commands_type_replacer),
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            // Trigger name only — clean, no badges
+            Text(
+                text = cmd.trigger,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
 
-            // Expanded details — prompt/description only, actions handled by swipe
+            // Expanded details — prompt/description only
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically(
