@@ -37,6 +37,8 @@ class OpenAICompatibleClient {
                 .openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            connection.setRequestProperty("User-Agent", "SwiftSlate")
+            connection.setRequestProperty("Accept", "application/json")
             connection.connectTimeout = 15_000
             connection.readTimeout = 15_000
 
@@ -134,6 +136,8 @@ class OpenAICompatibleClient {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            connection.setRequestProperty("User-Agent", "SwiftSlate")
+            connection.setRequestProperty("Accept", "application/json")
             connection.doOutput = true
             connection.connectTimeout = 30_000
             connection.readTimeout = 60_000
