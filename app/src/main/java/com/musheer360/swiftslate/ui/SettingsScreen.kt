@@ -3,6 +3,7 @@ package com.musheer360.swiftslate.ui
 import android.content.SharedPreferences
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -417,27 +418,48 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
-            Slider(
+
+            val sliderState = rememberSliderState(
                 value = temperature,
-                onValueChange = {
-                    val newVal = Math.round(it * 10) / 10f
-                    if (newVal != temperature) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        temperature = newVal
-                    }
-                },
-                onValueChangeFinished = {
-                    prefs.edit().putFloat("temperature", temperature).apply()
-                },
                 valueRange = 0f..2f,
                 steps = 19,
-                modifier = Modifier.fillMaxWidth().height(26.dp),
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.outline
-                )
+                onValueChangeFinished = {
+                    prefs.edit().putFloat("temperature", temperature).apply()
+                }
+            )
+            val sliderInteraction = remember { MutableInteractionSource() }
+            val sliderColors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.outline
+            )
+
+            // Sync slider state → temperature state
+            LaunchedEffect(sliderState.value) {
+                val newVal = Math.round(sliderState.value * 10) / 10f
+                if (newVal != temperature) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    temperature = newVal
+                }
             }
+
+            Slider(
+                state = sliderState,
+                interactionSource = sliderInteraction,
+                modifier = Modifier.fillMaxWidth().height(26.dp),
+                thumb = {
+                    SliderDefaults.Thumb(
+                        interactionSource = sliderInteraction,
+                        colors = sliderColors
+                    )
+                },
+                track = {
+                    SliderDefaults.Track(
+                        sliderState = sliderState,
+                        colors = sliderColors
+                    )
+                }
+            )
             Spacer(modifier = Modifier.height(4.dp))
         }
 
