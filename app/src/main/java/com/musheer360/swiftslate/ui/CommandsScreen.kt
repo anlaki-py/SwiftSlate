@@ -564,12 +564,6 @@ private fun CompactCommandItem(
                         onClick = { showActionDialog = false; onEdit() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.commands_edit_command),
                             modifier = Modifier.weight(1f)
@@ -580,12 +574,6 @@ private fun CompactCommandItem(
                             onClick = { showActionDialog = false; onDelete() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = stringResource(R.string.commands_delete_command),
                                 modifier = Modifier.weight(1f)

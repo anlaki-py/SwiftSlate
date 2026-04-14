@@ -177,8 +177,8 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                     modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                 )
                 ExposedDropdownMenu(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(10.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(10.dp),
                     expanded = providerExpanded,
                     onDismissRequest = { providerExpanded = false }
                 ) {
@@ -211,89 +211,16 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                     )
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-        if (providerType == ProviderType.GEMINI) {
-            SectionHeader(stringResource(R.string.settings_model_title))
-            SlateCard {
-                ExposedDropdownMenuBox(
-                    expanded = modelExpanded,
-                    onExpandedChange = { modelExpanded = !modelExpanded }
-                ) {
-                    SlateTextField(
-                        value = selectedModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(10.dp),
-                        expanded = modelExpanded,
-                        onDismissRequest = { modelExpanded = false }
-                    ) {
-                        geminiModels.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model) },
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    selectedModel = model
-                                    prefs.edit().putString("model", model).apply()
-                                    modelExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                TemperatureSlider(temperature, haptic, prefs) { temperature = it }
-            }
-        } else if (providerType == ProviderType.GROQ) {
-            SectionHeader(stringResource(R.string.settings_model_title))
-            SlateCard {
-                ExposedDropdownMenuBox(
-                    expanded = groqModelExpanded,
-                    onExpandedChange = { groqModelExpanded = !groqModelExpanded }
-                ) {
-                    SlateTextField(
-                        value = groqModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(10.dp),
-                        expanded = groqModelExpanded,
-                        onDismissRequest = { groqModelExpanded = false }
-                    ) {
-                        groqModels.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model) },
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    groqModel = model
-                                    prefs.edit().putString("groq_model", model).apply()
-                                    groqModelExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                TemperatureSlider(temperature, haptic, prefs) { temperature = it }
-            }
-        } else {
-            SectionHeader(stringResource(R.string.settings_endpoint_title))
-            SlateCard {
+            if (providerType == ProviderType.CUSTOM) {
                 Text(
                     text = stringResource(R.string.settings_endpoint_desc),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 SlateTextField(
                     value = customEndpoint,
                     onValueChange = {
@@ -328,18 +255,76 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SectionHeader(stringResource(R.string.settings_model_title))
-            SlateCard {
+            if (providerType == ProviderType.GEMINI) {
+                ExposedDropdownMenuBox(
+                    expanded = modelExpanded,
+                    onExpandedChange = { modelExpanded = !modelExpanded }
+                ) {
+                    SlateTextField(
+                        value = selectedModel,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(10.dp),
+                        expanded = modelExpanded,
+                        onDismissRequest = { modelExpanded = false }
+                    ) {
+                        geminiModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model) },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    selectedModel = model
+                                    prefs.edit().putString("model", model).apply()
+                                    modelExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            } else if (providerType == ProviderType.GROQ) {
+                ExposedDropdownMenuBox(
+                    expanded = groqModelExpanded,
+                    onExpandedChange = { groqModelExpanded = !groqModelExpanded }
+                ) {
+                    SlateTextField(
+                        value = groqModel,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(10.dp),
+                        expanded = groqModelExpanded,
+                        onDismissRequest = { groqModelExpanded = false }
+                    ) {
+                        groqModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model) },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    groqModel = model
+                                    prefs.edit().putString("groq_model", model).apply()
+                                    groqModelExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            } else {
                 Text(
                     text = stringResource(R.string.settings_model_desc),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 SlateTextField(
                     value = customModel,
                     onValueChange = {
@@ -352,9 +337,10 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                     },
                     placeholder = { Text(stringResource(R.string.settings_model_placeholder)) }
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                TemperatureSlider(temperature, haptic, prefs) { temperature = it }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            TemperatureSlider(temperature, haptic, prefs) { temperature = it }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
