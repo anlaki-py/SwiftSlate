@@ -66,7 +66,7 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
 
     var triggerPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
     var prefixError by remember { mutableStateOf<String?>(null) }
-    var temperature by remember { mutableStateOf(prefs.getFloat("temperature", 0.5f)) }
+    var temperature by remember { mutableStateOf(prefs.getFloat("temperature", 0.7f)) }
 
     val prefixErrorLength = stringResource(R.string.settings_prefix_error_length)
     val prefixErrorWhitespace = stringResource(R.string.settings_prefix_error_whitespace)
@@ -247,6 +247,8 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                TemperatureSlider(temperature, haptic, prefs) { temperature = it }
             }
         } else if (providerType == ProviderType.GROQ) {
             SectionHeader(stringResource(R.string.settings_model_title))
@@ -280,6 +282,8 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                TemperatureSlider(temperature, haptic, prefs) { temperature = it }
             }
         } else {
             SectionHeader(stringResource(R.string.settings_endpoint_title))
@@ -348,6 +352,8 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                     },
                     placeholder = { Text(stringResource(R.string.settings_model_placeholder)) }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                TemperatureSlider(temperature, haptic, prefs) { temperature = it }
             }
         }
 
@@ -394,73 +400,6 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SectionHeader(stringResource(R.string.settings_temperature_title))
-        SlateCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_temperature_desc),
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = String.format("%.1f", temperature),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-
-            val sliderState = rememberSliderState(
-                value = temperature,
-                valueRange = 0f..2f,
-                steps = 19,
-                onValueChangeFinished = {
-                    prefs.edit().putFloat("temperature", temperature).apply()
-                }
-            )
-            val sliderInteraction = remember { MutableInteractionSource() }
-            val sliderColors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.outline
-            )
-
-            // Sync slider state → temperature state
-            LaunchedEffect(sliderState.value) {
-                val newVal = Math.round(sliderState.value * 10) / 10f
-                if (newVal != temperature) {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    temperature = newVal
-                }
-            }
-
-            Slider(
-                state = sliderState,
-                interactionSource = sliderInteraction,
-                modifier = Modifier.fillMaxWidth().height(26.dp),
-                thumb = {
-                    SliderDefaults.Thumb(
-                        interactionSource = sliderInteraction,
-                        colors = sliderColors
-                    )
-                },
-                track = {
-                    SliderDefaults.Track(
-                        sliderState = sliderState,
-                        colors = sliderColors
-                    )
-                }
-            )
-            Spacer(modifier = Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -575,4 +514,82 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
             }
         )
     }
+}
+
+/**
+ * Inline temperature slider with label and current value display.
+ * Range: 0.0–2.0 in 0.1 steps. Saves to SharedPreferences on release.
+ *
+ * @param temperature Current temperature value.
+ * @param haptic Haptic feedback provider.
+ * @param prefs SharedPreferences to persist the value.
+ * @param onTemperatureChange Callback when temperature changes.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemperatureSlider(
+    temperature: Float,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    prefs: SharedPreferences,
+    onTemperatureChange: (Float) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.settings_temperature_desc),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = String.format("%.1f", temperature),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+    Spacer(modifier = Modifier.height(6.dp))
+
+    val sliderState = rememberSliderState(
+        value = temperature,
+        valueRange = 0f..2f,
+        steps = 19,
+        onValueChangeFinished = {
+            prefs.edit().putFloat("temperature", temperature).apply()
+        }
+    )
+    val sliderInteraction = remember { MutableInteractionSource() }
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline
+    )
+
+    LaunchedEffect(sliderState.value) {
+        val newVal = Math.round(sliderState.value * 10) / 10f
+        if (newVal != temperature) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onTemperatureChange(newVal)
+        }
+    }
+
+    Slider(
+        state = sliderState,
+        interactionSource = sliderInteraction,
+        modifier = Modifier.fillMaxWidth().height(26.dp),
+        thumb = {
+            SliderDefaults.Thumb(
+                interactionSource = sliderInteraction,
+                colors = sliderColors
+            )
+        },
+        track = {
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                colors = sliderColors
+            )
+        }
+    )
 }

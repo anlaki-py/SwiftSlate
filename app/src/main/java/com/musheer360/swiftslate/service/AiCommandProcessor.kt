@@ -50,7 +50,7 @@ class AiCommandProcessor(
 ) {
 
     private companion object {
-        const val DEFAULT_TEMPERATURE = 0.5
+        const val DEFAULT_TEMPERATURE = 0.7
 
         /** Gemini's official OpenAI-compatible base URL. */
         const val GEMINI_OPENAI_ENDPOINT =

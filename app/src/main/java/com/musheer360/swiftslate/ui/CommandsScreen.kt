@@ -7,7 +7,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
@@ -462,6 +464,7 @@ private fun SearchBar(
  * @param onEdit Callback when the edit action is tapped.
  * @param onDelete Callback when the delete action is tapped.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactCommandItem(
     cmd: Command,
@@ -473,6 +476,84 @@ private fun CompactCommandItem(
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
+) {
+    // Determine if this command supports actions (undo never does)
+    val isUndeletable = cmd.builtInKey != null &&
+        commandManager.isUndeletable(cmd.builtInKey)
+    val hasActions = !isUndoCommand
+
+    if (hasActions) {
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                when (value) {
+                    SwipeToDismissBoxValue.StartToEnd -> { onEdit(); false }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        if (!isUndeletable) { onDelete(); false } else false
+                    }
+                    SwipeToDismissBoxValue.Settled -> false
+                }
+            }
+        )
+
+        SwipeToDismissBox(
+            state = dismissState,
+            backgroundContent = {
+                val direction = dismissState.dismissDirection
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = if (direction == SwipeToDismissBoxValue.StartToEnd)
+                        Arrangement.Start else Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (direction == SwipeToDismissBoxValue.StartToEnd) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.commands_edit_command),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else if (!isUndeletable) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.commands_delete_command),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            },
+            enableDismissFromStartToEnd = true,
+            enableDismissFromEndToStart = !isUndeletable
+        ) {
+            CommandItemContent(cmd, isExpanded, collapseLabel, expandLabel, onToggleExpand)
+        }
+    } else {
+        // Undo command — no swipe, just the card
+        CommandItemContent(cmd, isExpanded, collapseLabel, expandLabel, onToggleExpand)
+    }
+}
+
+/**
+ * The visual content of a command list item — trigger, badges, expandable description.
+ * Extracted so both swipeable and non-swipeable items share the same layout.
+ *
+ * @param cmd The command to display.
+ * @param isExpanded Whether the description is visible.
+ * @param collapseLabel Accessibility label for collapsing.
+ * @param expandLabel Accessibility label for expanding.
+ * @param onToggleExpand Callback to toggle expand/collapse.
+ */
+@Composable
+private fun CommandItemContent(
+    cmd: Command,
+    isExpanded: Boolean,
+    collapseLabel: String,
+    expandLabel: String,
+    onToggleExpand: () -> Unit
 ) {
     SlateItemCard(
         modifier = Modifier.clickable(
@@ -511,7 +592,7 @@ private fun CompactCommandItem(
                 }
             }
 
-            // Expanded details — prompt, description, and action buttons
+            // Expanded details — prompt/description only, actions handled by swipe
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically(
@@ -527,60 +608,11 @@ private fun CompactCommandItem(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = cmd.description.ifBlank {
-                            if (cmd.prompt.length > 80) cmd.prompt.take(77) + "…" else cmd.prompt
+                            if (cmd.prompt.length > 80) cmd.prompt.take(77) + "\u2026" else cmd.prompt
                         },
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
-
-                    // Action buttons — hidden for undo command
-                    if (!isUndoCommand) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Edit button
-                            OutlinedButton(
-                                onClick = { onEdit() },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.commands_edit_command),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            // Delete button — hidden for undeletable built-ins
-                            val isUndeletable = cmd.builtInKey != null &&
-                                commandManager.isUndeletable(cmd.builtInKey)
-                            if (!isUndeletable) {
-                                OutlinedButton(
-                                    onClick = { onDelete() },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(32.dp)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.commands_delete_command),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
