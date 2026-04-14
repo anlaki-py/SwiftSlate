@@ -74,7 +74,7 @@ jobs:
           fi
 
           VERSION_NAME="${TAG#v}"
-          VERSION_CODE=$(git rev-list --count HEAD)
+          VERSION_CODE=$(( ($(date -u +%s) - 1704067200) / 60 ))
           APK_NAME="SwiftSlate-${TAG}"
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
