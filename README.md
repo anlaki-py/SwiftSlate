@@ -4,7 +4,9 @@
 
 # SwiftSlate
 
-System-wide AI text assistant for Android. Type a trigger like `?fix` at the end of any text and watch it get replaced instantly.
+System-wide AI text assistant for Android. Users may input a specific trigger, such as `?fix`, at the end of any text string to initiate an immediate replacement.
+
+> "A more stable and refined fork of [Musheer Alam](https://github.com/Musheer360)'s original project"
 
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white)](#getting-started)
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](#tech-stack)
