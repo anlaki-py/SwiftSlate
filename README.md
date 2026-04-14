@@ -1,51 +1,128 @@
+<div align="center">
+
+<img src="playstore-icon.png" width="100" alt="SwiftSlate Icon" />
+
 # SwiftSlate
 
-**A free, open-source AI text assistant that works everywhere on Android.**
+System-wide AI text assistant for Android. Type a trigger like `?fix` at the end of any text and watch it get replaced instantly.
 
-Fork of [Musheer360/SwiftSlate](https://github.com/Musheer360/SwiftSlate).
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white)](#getting-started)
+[![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](#tech-stack)
+[![License: MIT](https://img.shields.io/badge/MIT-blue?style=flat-square)](LICENSE)
 
----
+</div>
 
-SwiftSlate lets you fix, rewrite, translate, and transform text in any app without leaving what you're doing. Just type a short command at the end of your text and it gets replaced with the result instantly, right where you typed it.
+## Quick Demo
 
-No copy-pasting. No switching apps. It just works.
+| You type | Result |
+|:---------|:-------|
+| `i dont no whats hapening ?fix` | `I don't know what's happening.` |
+| `hey can u send me that file ?formal` | `Could you please share the file at your earliest convenience?` |
+| `Hello, how are you? ?tr:es` | `Hola, ¿cómo estás?` |
 
-## Quick Examples
+## What It Does
 
-```
-"Meeting is tommorow at 3 ?fix"       ->  "Meeting is tomorrow at 3."
-"Can you send the report ?formal"     ->  "Could you please send the report at your earliest convenience?"
-"Hello ?translate:es"                  ->  "Hola"
-```
+SwiftSlate runs in the background and helps you write better text anywhere on your phone. Type your message, add a trigger at the end, and it replaces your text with the improved version. No copying, no switching apps.
 
-## What It Can Do
+Two kinds of commands:
 
-| Command | What it does |
-|---------|-------------|
-| `?fix` | Fix grammar and spelling |
-| `?improve` | Make text clearer and better flowing |
-| `?shorten` | Make it shorter |
+- **AI commands** send your text to an AI service (Gemini, Groq, or your own) and return the result
+- **Text replacer commands** work offline instantly, no API key needed
+
+## Built-in Commands
+
+| Trigger | What it does |
+|:--------|:-------------|
+| `?fix` | Fix grammar, spelling, and punctuation |
+| `?improve` | Make it clearer and easier to read |
+| `?shorten` | Cut it down while keeping the meaning |
 | `?expand` | Add more detail |
-| `?formal` | Rewrite in a professional tone |
-| `?casual` | Rewrite in a casual tone |
-| `?emoji` | Add fitting emojis |
-| `?reply` | Generate a reply to the text |
-| `?translate:XX` | Translate to any language (es, fr, de, ja, etc.) |
-| `?undo` | Revert the last change |
+| `?formal` | Sound more professional |
+| `?casual` | Sound more relaxed and friendly |
+| `?emoji` | Add relevant emojis |
+| `?reply` | Generate a reply to what someone said |
+| `?undo` | Go back to what you originally typed |
+| `?tr:XX` | Translate to another language (e.g., `?tr:fr` for French) |
 
-You can also create your own custom commands, and set up instant text replacements that work offline (like expanding `?sig` into your full email signature).
+## Text Replacer Commands
 
-## Getting Started
+Create your own shortcuts that insert text instantly, no internet needed:
+
+| Trigger | Inserts |
+|:--------|:--------|
+| `?sig` | Your signature |
+| `?ty` | A thank you message |
+| `?addr` | Your address |
+
+## AI Providers
+
+| Provider | Notes |
+|:---------|:------|
+| Google Gemini | Free tier available |
+| Groq | Fast, free tier available |
+| Custom | Any OpenAI-compatible service, including local models like Ollama or LM Studio |
+
+## Setup
 
 1. Download the APK from [Releases](https://github.com/anlaki-py/SwiftSlate/releases/latest)
-2. Open the app and add an API key (free keys from [Google AI Studio](https://aistudio.google.com) or [Groq](https://console.groq.com))
-3. Enable SwiftSlate in Accessibility Settings (there's a button on the Dashboard)
-4. Disable battery optimization when prompted (keeps the service running reliably)
-5. Start typing in any app
+2. Install and open the app
+3. Add an API key in the **Keys** tab (get one free from Google or Groq)
+4. Enable SwiftSlate in your phone's Accessibility settings
+5. Open any app, type your text, add a trigger like `?fix`, and done
 
-Supports Google Gemini, Groq, and any OpenAI-compatible provider including local models.
+## Custom Commands
+
+Make your own triggers in the **Commands** tab. Choose between:
+
+- **AI**: Sends text to the AI with your custom instructions
+- **Text Replacer**: Instantly replaces your trigger with fixed text
+
+Examples: `?eli5` to simplify, `?bullet` for bullet points, `?tldr` for a short summary
+
+## Managing Multiple Keys
+
+Add several API keys and SwiftSlate will rotate between them automatically. If one hits a rate limit, it switches to the next. Keys are encrypted on your device.
+
+## Backup and Restore
+
+Export your custom commands to a file and import them later. Useful when switching phones. API keys are not included in backups.
+
+## Screens
+
+- **Dashboard**: Check if the service is running
+- **Keys**: Add and manage API keys
+- **Commands**: View and edit your commands
+- **Settings**: Pick your AI provider, change the trigger prefix, backup commands
 
 ## Privacy
 
-Text is only sent to the AI provider you choose. No analytics, no tracking, no other servers contacted. Text replacer commands run completely offline.
+- Only processes text when you type a trigger; everything else is ignored
+- Never touches password fields
+- Sends text only to your chosen AI provider
+- No tracking or analytics
+- API keys stay encrypted on your device
 
+## Requirements
+
+Android 6.0 or newer.
+
+## Building
+
+```bash
+git clone https://github.com/anlaki-py/SwiftSlate.git
+cd SwiftSlate
+./gradlew assembleDebug
+```
+
+## Known Issues
+
+- Some apps with unusual text fields may not work perfectly
+- Some phone brands hide third-party accessibility services; search for "SwiftSlate" in your accessibility settings if you don't see it
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
+
+---
+
+Made by [anlaki](https://anlaki.dev)
