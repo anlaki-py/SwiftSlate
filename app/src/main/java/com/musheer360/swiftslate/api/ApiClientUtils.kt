@@ -100,8 +100,13 @@ internal object ApiClientUtils {
     }
 }
 
-internal fun Throwable?.isTransientNetwork(): Boolean = when (this) {
+/**
+ * Returns `true` for errors that are likely transient and worth retrying:
+ * network-level failures (timeout, DNS, connection refused) and
+ * server-side errors (502, 503, 504).
+ */
+internal fun Throwable?.isTransient(): Boolean = when (this) {
     is SocketTimeoutException, is UnknownHostException, is ConnectException -> true
-    is ApiException -> apiError is ApiError.Network
+    is ApiException -> apiError is ApiError.Network || apiError is ApiError.ServerError
     else -> false
 }

@@ -98,8 +98,8 @@ class OpenAICompatibleClient {
     ): Result<GenerateResult> = withContext(Dispatchers.IO) {
         var result = doGenerate(prompt, text, apiKey, model, temperature, endpoint)
 
-        // Retry once for transient network errors
-        if (result.isFailure && result.exceptionOrNull().isTransientNetwork()) {
+        // Retry once for transient errors (network failures + 5xx server errors)
+        if (result.isFailure && result.exceptionOrNull().isTransient()) {
             kotlinx.coroutines.delay(1000)
             result = doGenerate(prompt, text, apiKey, model, temperature, endpoint)
         }
