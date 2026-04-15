@@ -65,4 +65,27 @@ internal fun SettingsFooter() {
             }
         )
     }
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    // Ko-fi support
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "☕ ",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = stringResource(R.string.settings_support_kofi),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable(interactionSource = null, indication = null) {
+                uriHandler.openUri("https://ko-fi.com/unluky")
+            }
+        )
+    }
 }

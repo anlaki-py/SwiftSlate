@@ -123,7 +123,11 @@ cd SwiftSlate
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+[MIT License](LICENSE).
+
+## Support
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/unluky)
 
 ---
 
