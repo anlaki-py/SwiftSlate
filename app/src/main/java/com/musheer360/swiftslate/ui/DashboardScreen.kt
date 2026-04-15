@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 import com.musheer360.swiftslate.manager.ProviderManager
+import com.musheer360.swiftslate.model.AiProvider
 
 @Composable
 fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager, providerManager: ProviderManager) {
