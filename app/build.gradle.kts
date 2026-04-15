@@ -16,7 +16,7 @@ android {
         versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
         versionName = (project.findProperty("versionName") as String?) ?: "$baseVersion-dev"
 
-        resourceConfigurations += setOf("en", "fr", "zh-rCN", "hi", "de", "es", "pt-rBR")
+        resourceConfigurations += setOf("en")
     }
 
     signingConfigs {
