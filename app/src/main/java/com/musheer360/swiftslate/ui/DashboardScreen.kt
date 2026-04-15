@@ -1,6 +1,5 @@
 package com.musheer360.swiftslate.ui
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -30,6 +29,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.service.AccessibilityHelper
 import com.musheer360.swiftslate.service.BatteryOptimizationHelper
 import com.musheer360.swiftslate.ui.components.BatteryOptimizationCard
 import com.musheer360.swiftslate.ui.components.ScreenTitle
@@ -40,19 +40,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private fun checkServiceEnabled(context: Context): Boolean {
-    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-    val enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
-    return enabledServices.any {
-        it.resolveInfo.serviceInfo.packageName == context.packageName
-    }
-}
-
 @Composable
 fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    var isServiceEnabled by remember { mutableStateOf(checkServiceEnabled(context)) }
+    var isServiceEnabled by remember { mutableStateOf(AccessibilityHelper.isServiceEnabled(context)) }
     var keyCount by remember { mutableIntStateOf(keyManager.getKeys().size) }
     var currentPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
     var isBatteryOptimized by remember {
@@ -64,7 +56,7 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
     DisposableEffect(context) {
         val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
         val listener = AccessibilityManager.AccessibilityStateChangeListener {
-            isServiceEnabled = checkServiceEnabled(context)
+            isServiceEnabled = AccessibilityHelper.isServiceEnabled(context)
         }
         am.addAccessibilityStateChangeListener(listener)
         onDispose { am.removeAccessibilityStateChangeListener(listener) }
@@ -77,7 +69,7 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
             while (true) {
                 val (newEnabled, newKeyCount, newPrefix) = withContext(Dispatchers.IO) {
                     Triple(
-                        checkServiceEnabled(context),
+                        AccessibilityHelper.isServiceEnabled(context),
                         keyManager.getKeys().size,
                         commandManager.getTriggerPrefix()
                     )

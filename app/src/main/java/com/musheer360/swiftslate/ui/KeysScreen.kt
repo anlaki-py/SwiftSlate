@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
+import com.musheer360.swiftslate.domain.KeyValidation
+import com.musheer360.swiftslate.domain.KeyValidationResult
 import com.musheer360.swiftslate.manager.KeyManager
 import com.musheer360.swiftslate.model.ProviderType
 import com.musheer360.swiftslate.ui.components.ScreenTitle
@@ -94,44 +96,42 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                         testResult = null
                         scope.launch {
                             val trimmedKey = newKey.trim()
-                            if (keyManager.getKeys().contains(trimmedKey)) {
-                                isTesting = false
-                                testResult = alreadyAddedMsg
-                                testSuccess = false
-                                return@launch
-                            }
-                            val result = run {
-                                val providerType = prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
-                                val customEndpoint = prefs.getString("custom_endpoint", "") ?: ""
-                                when {
-                                    providerType == ProviderType.GROQ ->
-                                        openAIClient.validateKey(trimmedKey, "https://api.groq.com/openai/v1")
-                                    providerType == ProviderType.CUSTOM && customEndpoint.isNotBlank() ->
-                                        openAIClient.validateKey(trimmedKey, customEndpoint)
-                                    else ->
-                                        openAIClient.validateKey(
-                                            trimmedKey,
-                                            "https://generativelanguage.googleapis.com/v1beta/openai"
-                                        )
-                                }
-                            }
+                            val providerType = prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
+                            val customEndpoint = prefs.getString("custom_endpoint", "") ?: ""
+
+                            val result = KeyValidation.validate(
+                                key = trimmedKey,
+                                providerType = providerType,
+                                customEndpoint = customEndpoint,
+                                existingKeys = keyManager.getKeys(),
+                                client = openAIClient,
+                                fallbackErrorMessage = validationFailedMsg
+                            )
                             isTesting = false
-                            if (result.isSuccess) {
-                                if (!keyManager.addKey(trimmedKey)) {
-                                    testResult = keystoreErrorMsg
+
+                            when (result) {
+                                is KeyValidationResult.Duplicate -> {
+                                    testResult = alreadyAddedMsg
                                     testSuccess = false
-                                    return@launch
                                 }
-                                keys = keyManager.getKeys()
-                                newKey = ""
-                                testResult = validAddedMsg
-                                testSuccess = true
-                                // Clear clipboard to prevent API key leaking via paste history
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
-                            } else {
-                                testResult = result.exceptionOrNull()?.message ?: validationFailedMsg
-                                testSuccess = false
+                                is KeyValidationResult.Invalid -> {
+                                    testResult = result.message
+                                    testSuccess = false
+                                }
+                                is KeyValidationResult.Valid -> {
+                                    if (!keyManager.addKey(trimmedKey)) {
+                                        testResult = keystoreErrorMsg
+                                        testSuccess = false
+                                        return@launch
+                                    }
+                                    keys = keyManager.getKeys()
+                                    newKey = ""
+                                    testResult = validAddedMsg
+                                    testSuccess = true
+                                    // Clear clipboard to prevent API key leaking via paste history
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+                                }
                             }
                         }
                     }
@@ -150,11 +150,9 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-            val (apiKeyUrl, providerName) = when (prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI) {
-                ProviderType.GROQ -> "https://console.groq.com/keys" to "Groq"
-                ProviderType.CUSTOM -> null to null
-                else -> "https://aistudio.google.com/api-keys" to "Gemini"
-            }
+            val (apiKeyUrl, providerName) = KeyValidation.getApiKeyUrl(
+                prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
+            )
             if (apiKeyUrl != null && providerName != null) {
                 Text(
                     text = stringResource(R.string.keys_get_api_key, providerName),

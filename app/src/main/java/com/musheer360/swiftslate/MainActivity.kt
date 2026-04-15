@@ -25,10 +25,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.musheer360.swiftslate.service.KeepAliveService
-import com.musheer360.swiftslate.ui.CommandsScreen
+import com.musheer360.swiftslate.ui.commandsscreen.CommandsScreen
 import com.musheer360.swiftslate.ui.DashboardScreen
 import com.musheer360.swiftslate.ui.KeysScreen
-import com.musheer360.swiftslate.ui.SettingsScreen
+import com.musheer360.swiftslate.ui.settingsscreen.SettingsScreen
 import com.musheer360.swiftslate.ui.theme.SwiftSlateTheme
 
 enum class Tab(@StringRes val titleRes: Int, val icon: ImageVector) {
