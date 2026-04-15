@@ -11,4 +11,5 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
     val prefs: SharedPreferences = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     val keyManager = KeyManager(application)
     val commandManager = CommandManager(application)
+    val providerManager = com.musheer360.swiftslate.manager.ProviderManager(application)
 }

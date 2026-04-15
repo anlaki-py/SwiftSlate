@@ -40,12 +40,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+import com.musheer360.swiftslate.manager.ProviderManager
+
 @Composable
-fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
+fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager, providerManager: ProviderManager) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var isServiceEnabled by remember { mutableStateOf(AccessibilityHelper.isServiceEnabled(context)) }
-    var keyCount by remember { mutableIntStateOf(keyManager.getKeys().size) }
+    var activeProvider by remember { mutableStateOf(providerManager.getActiveProvider()) }
+    var keyCount by remember { mutableIntStateOf(activeProvider?.id?.let { keyManager.getKeys(it).size } ?: 0) }
     var currentPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
     var isBatteryOptimized by remember {
         mutableStateOf(!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
@@ -67,16 +70,25 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(500) // Let navigation animation finish
             while (true) {
-                val (newEnabled, newKeyCount, newPrefix) = withContext(Dispatchers.IO) {
-                    Triple(
+                val results = withContext(Dispatchers.IO) {
+                    val activeId = providerManager.getActiveProviderId()
+                    listOf(
                         AccessibilityHelper.isServiceEnabled(context),
-                        keyManager.getKeys().size,
-                        commandManager.getTriggerPrefix()
+                        keyManager.getKeys(activeId).size,
+                        commandManager.getTriggerPrefix(),
+                        providerManager.getActiveProvider()
                     )
                 }
+                
+                val newEnabled = results[0] as Boolean
+                val newKeyCount = results[1] as Int
+                val newPrefix = results[2] as String
+                val newProvider = results[3] as AiProvider?
+
                 if (newEnabled != isServiceEnabled) isServiceEnabled = newEnabled
                 if (newKeyCount != keyCount) keyCount = newKeyCount
                 if (newPrefix != currentPrefix) currentPrefix = newPrefix
+                if (newProvider?.id != activeProvider?.id) activeProvider = newProvider
 
                 // Poll battery optimization status alongside other checks
                 val newBatteryOptimized =
@@ -151,7 +163,7 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = stringResource(R.string.dashboard_api_keys_title),
+                    text = "API Keys (${activeProvider?.name ?: "None"})",
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

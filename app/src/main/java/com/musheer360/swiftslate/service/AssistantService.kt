@@ -36,6 +36,7 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
     private lateinit var keyManager: KeyManager
     private lateinit var commandManager: CommandManager
+    private lateinit var providerManager: com.musheer360.swiftslate.manager.ProviderManager
     private lateinit var textReplacer: TextReplacer
     private lateinit var toastManager: OverlayToastManager
     private lateinit var aiCommandProcessor: AiCommandProcessor
@@ -69,10 +70,11 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         super.onServiceConnected()
         keyManager = KeyManager(applicationContext)
         commandManager = CommandManager(applicationContext)
+        providerManager = com.musheer360.swiftslate.manager.ProviderManager(applicationContext)
         textReplacer = TextReplacer(applicationContext, handler)
         toastManager = OverlayToastManager(applicationContext, handler)
         aiCommandProcessor = AiCommandProcessor(
-            applicationContext, keyManager, OpenAICompatibleClient(),
+            applicationContext, keyManager, providerManager, OpenAICompatibleClient(),
             textReplacer, toastManager, serviceScope, handler
         )
         updateTriggers()

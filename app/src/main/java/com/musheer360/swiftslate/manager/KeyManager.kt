@@ -22,17 +22,18 @@ class KeyManager(context: Context) {
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_SEPARATOR = "]"
-        private const val PREF_KEY_ARRAY = "keys_array"
         private const val CACHE_TTL_MS = 5_000L
+
+        private fun getPrefKeyArray(providerId: String) = "keys_array_$providerId"
     }
 
     private val rateLimitedKeys = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val invalidKeys: MutableSet<String> = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
-    private val roundRobinIndex = AtomicInteger(0)
-    @Volatile
-    private var cachedKeys: List<String>? = null
-    @Volatile
-    private var cacheTimestamp = 0L
+    private val roundRobinIndices = java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>()
+    
+    private val cachedProviderKeys = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+    private val cacheTimestamps = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     @Volatile
     var keystoreAvailable: Boolean = true
         private set
@@ -107,78 +108,64 @@ class KeyManager(context: Context) {
         (0 until length()).map { getString(it) }
 
     @Synchronized
-    fun getKeys(): List<String> {
+    fun getKeys(providerId: String): List<String> {
         val now = System.currentTimeMillis()
-        val cached = cachedKeys
-        if (cached != null && now - cacheTimestamp < CACHE_TTL_MS) return cached
-        val encryptedStr = prefs.getString(PREF_KEY_ARRAY, null) ?: return emptyList()
-        // Legacy plaintext migration — can be removed once all users are on v1.3+
-        if (!encryptedStr.contains(IV_SEPARATOR)) {
-            return try {
-                val encrypted = encrypt(encryptedStr)
-                prefs.edit().putString(PREF_KEY_ARRAY, encrypted).commit()
-                val jsonStr = decrypt(encrypted) ?: return emptyList()
-                val list = JSONArray(jsonStr).toStringList()
-                cachedKeys = list
-                cacheTimestamp = System.currentTimeMillis()
-                list
-            } catch (_: Exception) {
-                // Encryption failed (e.g. keystore invalidated) — return plaintext keys so user doesn't lose access
-                try { JSONArray(encryptedStr).toStringList() } catch (_: Exception) { emptyList() }
-            }
-        }
+        val cached = cachedProviderKeys[providerId]
+        val timestamp = cacheTimestamps[providerId] ?: 0L
+        if (cached != null && now - timestamp < CACHE_TTL_MS) return cached
+        
+        val encryptedStr = prefs.getString(getPrefKeyArray(providerId), null) ?: return emptyList()
         val jsonStr = decrypt(encryptedStr) ?: run {
-            cachedKeys = emptyList()
-            cacheTimestamp = System.currentTimeMillis()
+            cachedProviderKeys[providerId] = emptyList()
+            cacheTimestamps[providerId] = System.currentTimeMillis()
             return emptyList()
         }
+        
         val list = try { JSONArray(jsonStr).toStringList() } catch (_: Exception) { emptyList() }
-        cachedKeys = list
-        cacheTimestamp = System.currentTimeMillis()
+        cachedProviderKeys[providerId] = list
+        cacheTimestamps[providerId] = System.currentTimeMillis()
         return list
     }
 
     @Synchronized
-    private fun saveKeys(keys: List<String>): Boolean {
+    private fun saveKeys(providerId: String, keys: List<String>): Boolean {
         val arr = JSONArray(keys)
         return try {
-            prefs.edit().putString(PREF_KEY_ARRAY, encrypt(arr.toString())).apply()
-            cachedKeys = keys
-            cacheTimestamp = System.currentTimeMillis()
+            prefs.edit().putString(getPrefKeyArray(providerId), encrypt(arr.toString())).apply()
+            cachedProviderKeys[providerId] = keys
+            cacheTimestamps[providerId] = System.currentTimeMillis()
             true
         } catch (_: Exception) {
-            cachedKeys = null
-            cacheTimestamp = 0L
+            cachedProviderKeys.remove(providerId)
+            cacheTimestamps.remove(providerId)
             false
         }
     }
 
     @Synchronized
-    fun addKey(key: String): Boolean {
-        val keys = getKeys().toMutableList()
+    fun addKey(providerId: String, key: String): Boolean {
+        val keys = getKeys(providerId).toMutableList()
         if (!keys.contains(key)) {
             keys.add(key)
-            if (!saveKeys(keys)) return false
+            if (!saveKeys(providerId, keys)) return false
         }
         invalidKeys.remove(key)
         return true
     }
 
     @Synchronized
-    fun removeKey(key: String): Boolean {
-        val keys = getKeys().toMutableList()
+    fun removeKey(providerId: String, key: String): Boolean {
+        val keys = getKeys(providerId).toMutableList()
         keys.remove(key)
-        val saved = saveKeys(keys)
+        val saved = saveKeys(providerId, keys)
         rateLimitedKeys.remove(key)
         invalidKeys.remove(key)
         return saved
     }
 
-    // All @Synchronized methods use `this` as monitor (reentrant).
-    // getNextKey() intentionally calls getKeys() while holding the lock.
     @Synchronized
-    fun getNextKey(): String? {
-        val keys = getKeys()
+    fun getNextKey(providerId: String): String? {
+        val keys = getKeys(providerId)
         if (keys.isEmpty()) return null
         
         val now = System.currentTimeMillis()
@@ -190,7 +177,8 @@ class KeyManager(context: Context) {
         
         if (validKeys.isEmpty()) return null
         
-        val idx = (roundRobinIndex.getAndIncrement() and Int.MAX_VALUE) % validKeys.size
+        val counter = roundRobinIndices.getOrPut(providerId) { AtomicInteger(0) }
+        val idx = (counter.getAndIncrement() and Int.MAX_VALUE) % validKeys.size
         return validKeys[idx]
     }
 
@@ -203,8 +191,8 @@ class KeyManager(context: Context) {
         invalidKeys.add(key)
     }
 
-    fun getShortestWaitTimeMs(): Long? {
-        val keys = getKeys()
+    fun getShortestWaitTimeMs(providerId: String): Long? {
+        val keys = getKeys(providerId)
         if (keys.isEmpty()) return null
         val now = System.currentTimeMillis()
         val waits = keys.filter { !invalidKeys.contains(it) }

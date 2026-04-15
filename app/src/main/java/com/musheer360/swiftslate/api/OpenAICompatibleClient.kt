@@ -74,6 +74,61 @@ class OpenAICompatibleClient {
     }
 
     /**
+     * Fetches the list of available models from the provider's `/models` endpoint.
+     *
+     * @param apiKey Bearer token for authentication.
+     * @param endpoint Base URL of the provider.
+     * @return [Result.success] with a list of model IDs, or [Result.failure] with an error.
+     */
+    suspend fun fetchModels(
+        apiKey: String,
+        endpoint: String
+    ): Result<List<String>> = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
+        try {
+            val baseUrl = endpoint.trimEnd('/')
+            connection = URL("$baseUrl/models")
+                .openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            connection.setRequestProperty("User-Agent", "SwiftSlate")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 15_000
+
+            val responseCode = connection.responseCode
+            if (responseCode in 200..299) {
+                val responseBody = ApiClientUtils.readResponseBounded(connection)
+                val jsonResponse = JSONObject(responseBody)
+                val data = jsonResponse.optJSONArray("data")
+                val models = mutableListOf<String>()
+                if (data != null) {
+                    for (i in 0 until data.length()) {
+                        val modelObj = data.optJSONObject(i)
+                        val id = modelObj?.optString("id")
+                        if (!id.isNullOrBlank()) {
+                            models.add(id)
+                        }
+                    }
+                }
+                Result.success(models.sorted())
+            } else {
+                val errorBody = ApiClientUtils.readErrorBody(connection)
+                val apiMessage = ApiClientUtils.extractApiErrorMessage(errorBody)
+                when (responseCode) {
+                    429 -> Result.failure(Exception("Rate limited. Please try again later."))
+                    401, 403 -> Result.failure(Exception(if (apiMessage.isNotEmpty()) apiMessage else "Invalid API key"))
+                    else -> Result.failure(Exception("Error $responseCode: ${if (apiMessage.isNotEmpty()) apiMessage else "Unexpected error"}"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    /**
      * Sends a text-transformation request to the chat-completions endpoint.
      *
      * Uses `response_format: json_schema` with `strict: true` so the model
