@@ -98,7 +98,6 @@
     <string name="backup_export_success">Befehle erfolgreich exportiert</string>
     <string name="backup_import_success">Befehle erfolgreich importiert</string>
     <string name="backup_import_error">Ungültige Sicherungsdatei</string>
-    <string name="keys_keystore_error">Sicherer Schlüsselspeicher ist auf diesem Gerät nicht verfügbar. Schlüssel können nicht gespeichert werden.</string>
     <string name="backup_import_confirm">Dies ersetzt alle vorhandenen benutzerdefinierten Befehle. Fortfahren?</string>
     <string name="backup_import_cancel">Abbrechen</string>
     <string name="settings_check_updates">Nach Updates suchen</string>
