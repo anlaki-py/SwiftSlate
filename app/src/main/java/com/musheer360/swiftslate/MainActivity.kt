@@ -107,10 +107,10 @@ fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = viewModel()) {
             Tab.entries.associateWith { tab ->
                 movableContentOf {
                     when (tab) {
-                        Tab.Dashboard -> DashboardScreen(vm.keyManager, vm.commandManager)
-                        Tab.Keys -> KeysScreen(vm.keyManager, vm.prefs)
+                        Tab.Dashboard -> DashboardScreen(vm.keyManager, vm.commandManager, vm.providerManager)
+                        Tab.Keys -> KeysScreen(vm.keyManager, vm.providerManager)
                         Tab.Commands -> CommandsScreen(vm.commandManager)
-                        Tab.Settings -> SettingsScreen(vm.commandManager, vm.prefs)
+                        Tab.Settings -> SettingsScreen(vm.commandManager, vm.providerManager, vm.keyManager, vm.prefs)
                     }
                 }
             }

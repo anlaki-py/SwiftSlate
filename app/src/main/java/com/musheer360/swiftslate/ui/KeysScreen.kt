@@ -3,8 +3,6 @@ package com.musheer360.swiftslate.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.SharedPreferences
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,9 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -32,7 +29,7 @@ import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.domain.KeyValidation
 import com.musheer360.swiftslate.domain.KeyValidationResult
 import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.model.ProviderType
+import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
@@ -40,12 +37,43 @@ import com.musheer360.swiftslate.ui.components.SlateItemCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
 import kotlinx.coroutines.launch
 
+/**
+ * Screen for managing API keys scoped to the active provider.
+ * Shows the provider name, an input field to add keys with validation,
+ * and a list of stored keys with delete actions.
+ *
+ * @param keyManager Encrypted key storage manager.
+ * @param providerManager User-defined provider manager.
+ */
 @Composable
-fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
+fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val uriHandler = LocalUriHandler.current
-    var keys by remember { mutableStateOf(keyManager.getKeys()) }
+    val activeProvider = remember { providerManager.getActiveProvider() }
+
+    // No provider configured — show hint
+    if (activeProvider == null) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { }
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            ScreenTitle(stringResource(R.string.keys_title))
+            SlateCard {
+                Text(
+                    text = stringResource(R.string.keys_no_provider),
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        return
+    }
+
+    val providerId = activeProvider.id
+    var keys by remember { mutableStateOf(keyManager.getKeys(providerId)) }
     var keyToDelete by remember { mutableStateOf<String?>(null) }
     var newKey by remember { mutableStateOf("") }
     var isTesting by remember { mutableStateOf(false) }
@@ -62,10 +90,19 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { } // Creates a hardware layer for smooth NavHost slide animations
+            .graphicsLayer { }
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         ScreenTitle(stringResource(R.string.keys_title))
+
+        // Provider label
+        Text(
+            text = stringResource(R.string.keys_provider_label, activeProvider.name),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
 
         if (!keyManager.keystoreAvailable) {
             SlateCard {
@@ -96,19 +133,14 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                         testResult = null
                         scope.launch {
                             val trimmedKey = newKey.trim()
-                            val providerType = prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
-                            val customEndpoint = prefs.getString("custom_endpoint", "") ?: ""
-
                             val result = KeyValidation.validate(
                                 key = trimmedKey,
-                                providerType = providerType,
-                                customEndpoint = customEndpoint,
-                                existingKeys = keyManager.getKeys(),
+                                endpoint = activeProvider.endpoint,
+                                existingKeys = keyManager.getKeys(providerId),
                                 client = openAIClient,
                                 fallbackErrorMessage = validationFailedMsg
                             )
                             isTesting = false
-
                             when (result) {
                                 is KeyValidationResult.Duplicate -> {
                                     testResult = alreadyAddedMsg
@@ -119,17 +151,19 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                                     testSuccess = false
                                 }
                                 is KeyValidationResult.Valid -> {
-                                    if (!keyManager.addKey(trimmedKey)) {
+                                    if (!keyManager.addKey(providerId, trimmedKey)) {
                                         testResult = keystoreErrorMsg
                                         testSuccess = false
                                         return@launch
                                     }
-                                    keys = keyManager.getKeys()
+                                    keys = keyManager.getKeys(providerId)
                                     newKey = ""
                                     testResult = validAddedMsg
                                     testSuccess = true
-                                    // Clear clipboard to prevent API key leaking via paste history
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    // Clear clipboard to prevent API key leaking
+                                    val clipboard = context.getSystemService(
+                                        Context.CLIPBOARD_SERVICE
+                                    ) as ClipboardManager
                                     clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
                                 }
                             }
@@ -150,20 +184,6 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-            val (apiKeyUrl, providerName) = KeyValidation.getApiKeyUrl(
-                prefs.getString("provider_type", ProviderType.GEMINI) ?: ProviderType.GEMINI
-            )
-            if (apiKeyUrl != null && providerName != null) {
-                Text(
-                    text = stringResource(R.string.keys_get_api_key, providerName),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable(interactionSource = null, indication = null) { uriHandler.openUri(apiKeyUrl) }
-                        .heightIn(min = 48.dp)
-                        .wrapContentHeight(Alignment.CenterVertically)
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -175,7 +195,7 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(keys, key = { index, k -> "$index-${k.hashCode()}" }) { index, key ->
+                    itemsIndexed(keys, key = { index, k -> "$index-${k.hashCode()}" }) { _, key ->
                         SlateItemCard {
                             Text(
                                 text = "••••••••" + key.takeLast(4),
@@ -217,8 +237,8 @@ fun KeysScreen(keyManager: KeyManager, prefs: SharedPreferences) {
             confirmButton = {
                 TextButton(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (keyManager.removeKey(keyValue)) {
-                        keys = keyManager.getKeys()
+                    if (keyManager.removeKey(providerId, keyValue)) {
+                        keys = keyManager.getKeys(providerId)
                     } else {
                         testResult = keystoreErrorMsg
                         testSuccess = false

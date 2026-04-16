@@ -11,6 +11,7 @@ import android.widget.Toast
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import kotlinx.coroutines.CancellationException
@@ -36,6 +37,7 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
     private lateinit var keyManager: KeyManager
     private lateinit var commandManager: CommandManager
+    private lateinit var providerManager: ProviderManager
     private lateinit var textReplacer: TextReplacer
     private lateinit var toastManager: OverlayToastManager
     private lateinit var aiCommandProcessor: AiCommandProcessor
@@ -69,11 +71,13 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         super.onServiceConnected()
         keyManager = KeyManager(applicationContext)
         commandManager = CommandManager(applicationContext)
+        providerManager = ProviderManager(applicationContext)
         textReplacer = TextReplacer(applicationContext, handler)
         toastManager = OverlayToastManager(applicationContext, handler)
         aiCommandProcessor = AiCommandProcessor(
-            applicationContext, keyManager, OpenAICompatibleClient(),
-            textReplacer, toastManager, serviceScope, handler
+            applicationContext, providerManager, keyManager,
+            OpenAICompatibleClient(), textReplacer, toastManager,
+            serviceScope, handler
         )
         updateTriggers()
 
@@ -212,7 +216,14 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             cancelWatchdog(); processingStartedAt = 0L; isProcessing.set(false)
             textReplacer.recycleIfUnowned(source); return
         }
-        currentJob = aiCommandProcessor.processCommand(source, cleanText, command, this)
+
+        val temperature = applicationContext
+            .getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .getFloat("temperature", 0.7f)
+
+        currentJob = aiCommandProcessor.processCommand(
+            source, cleanText, command, this, temperature
+        )
     }
 
     /** Swaps current text with the previously captured original (single-level toggle). */

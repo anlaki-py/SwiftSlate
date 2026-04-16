@@ -12,6 +12,7 @@
     <string name="dashboard_api_keys_title">API-Schlüssel</string>
     <string name="dashboard_keys_configured">%1$d Schlüssel konfiguriert</string>
     <string name="dashboard_add_key_hint">Füge einen API-Schlüssel hinzu, um zu beginnen.</string>
+    <string name="dashboard_provider_info">Anbieter: %1$s • %2$d Schlüssel</string>
     <string name="dashboard_how_to_use_title">So funktioniert\'s</string>
     <string name="dashboard_how_to_use_body">1. Aktiviere den Accessibility-Dienst.\n2. Füge mindestens einen API-Schlüssel hinzu.\n3. Tippe irgendwo in Android und beende mit einem Trigger wie \'%1$sfix\' oder \'%1$scasual\'.\n4. Warte einen Moment, bis der Text automatisch ersetzt wird!</string>
     <string name="dashboard_version">Version %1$s</string>
@@ -25,7 +26,9 @@
     <string name="keys_valid_added">Gültiger Schlüssel hinzugefügt!</string>
     <string name="keys_already_added">Dieser Schlüssel wurde bereits hinzugefügt</string>
     <string name="keys_validation_failed">Validierung fehlgeschlagen</string>
-    <string name="keys_get_api_key">Hol dir deinen %1$s API-Schlüssel ↗</string>
+    <string name="keys_keystore_error">Sicherer Schlüsselspeicher ist auf diesem Gerät nicht verfügbar. Schlüssel können nicht gespeichert werden.</string>
+    <string name="keys_provider_label">Schlüssel für %1$s</string>
+    <string name="keys_no_provider">Füge zuerst einen Anbieter in den Einstellungen hinzu</string>
 
     <!-- Commands -->
     <string name="commands_title">Befehle</string>
@@ -57,15 +60,26 @@
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>
     <string name="settings_provider_title">Anbieter</string>
-    <string name="settings_provider_gemini">Google Gemini</string>
-    <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_custom">Benutzerdefiniert (OpenAI-kompatibel)</string>
+    <string name="settings_add_provider">Anbieter hinzufügen</string>
+    <string name="settings_edit_provider">Anbieter bearbeiten</string>
+    <string name="settings_delete_provider">Anbieter löschen</string>
+    <string name="settings_provider_name">Anbietername</string>
+    <string name="settings_provider_name_hint">z. B. Mein Gemini, Arbeits-API</string>
+    <string name="settings_no_provider">Kein Anbieter konfiguriert</string>
+    <string name="settings_no_provider_hint">Füge einen Anbieter hinzu, um zu beginnen</string>
     <string name="settings_model_title">Modell</string>
     <string name="settings_endpoint_title">Endpoint</string>
     <string name="settings_endpoint_desc">Basis-URL der OpenAI-kompatiblen API</string>
     <string name="settings_model_desc">Modellkennung deines Anbieters</string>
     <string name="settings_endpoint_placeholder">https://api.example.com/v1</string>
     <string name="settings_model_placeholder">gpt-4o, claude-3-haiku usw.</string>
+    <string name="settings_select_model">Modell auswählen</string>
+    <string name="settings_models_loading">Modelle werden geladen…</string>
+    <string name="settings_models_error">Modelle konnten nicht geladen werden</string>
+    <string name="settings_models_search">Modelle suchen</string>
+    <string name="settings_models_manual">Modell manuell eingeben</string>
+    <string name="settings_models_no_keys">API-Schlüssel hinzufügen, um Modelle zu laden</string>
+    <string name="settings_models_empty">Keine Modelle gefunden</string>
     <string name="settings_trigger_prefix_title">Trigger-Präfix</string>
     <string name="settings_trigger_prefix_desc">Symbol vor Befehlsnamen (z. B. %1$sfix).</string>
     <string name="settings_prefix_error_length">Muss genau 1 Zeichen lang sein</string>
@@ -101,6 +115,8 @@
     <string name="delete_confirm_key_title">Diesen API-Schlüssel löschen?</string>
     <string name="delete_confirm_message">Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="delete_confirm_button">Löschen</string>
+    <string name="delete_confirm_provider_title">Diesen Anbieter löschen?</string>
+    <string name="delete_confirm_provider_message">Dadurch werden auch alle API-Schlüssel für diesen Anbieter entfernt.</string>
     <string name="backup_export_error">Export fehlgeschlagen</string>
 
     <!-- Keep-Alive / Notifications -->

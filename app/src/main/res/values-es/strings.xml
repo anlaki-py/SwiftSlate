@@ -12,6 +12,7 @@
     <string name="dashboard_api_keys_title">Claves API</string>
     <string name="dashboard_keys_configured">%1$d claves configuradas</string>
     <string name="dashboard_add_key_hint">Añade una clave API para comenzar.</string>
+    <string name="dashboard_provider_info">Proveedor: %1$s • %2$d claves</string>
     <string name="dashboard_how_to_use_title">Cómo usar</string>
     <string name="dashboard_how_to_use_body">1. Activa el servicio de accesibilidad.\n2. Añade al menos una clave API.\n3. Escribe en cualquier lugar de Android, terminando con un comando como \'%1$sfix\' o \'%1$scasual\'.\n4. ¡Espera un momento y el texto se reemplazará automáticamente!</string>
     <string name="dashboard_version">Versión %1$s</string>
@@ -25,7 +26,8 @@
     <string name="keys_valid_added">¡Clave válida añadida!</string>
     <string name="keys_already_added">Esta clave ya fue añadida</string>
     <string name="keys_validation_failed">Error de validación</string>
-    <string name="keys_get_api_key">Obtén tu clave API de %1$s ↗</string>
+    <string name="keys_provider_label">Claves para %1$s</string>
+    <string name="keys_no_provider">Agrega un proveedor en Ajustes primero</string>
 
     <!-- Commands -->
     <string name="commands_title">Comandos</string>
@@ -57,15 +59,26 @@
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
     <string name="settings_provider_title">Proveedor</string>
-    <string name="settings_provider_gemini">Google Gemini</string>
-    <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_custom">Personalizado (compatible con OpenAI)</string>
+    <string name="settings_add_provider">Agregar proveedor</string>
+    <string name="settings_edit_provider">Editar proveedor</string>
+    <string name="settings_delete_provider">Eliminar proveedor</string>
+    <string name="settings_provider_name">Nombre del proveedor</string>
+    <string name="settings_provider_name_hint">p. ej. Mi Gemini, API de trabajo</string>
+    <string name="settings_no_provider">Ningún proveedor configurado</string>
+    <string name="settings_no_provider_hint">Agrega un proveedor para comenzar</string>
     <string name="settings_model_title">Modelo</string>
     <string name="settings_endpoint_title">Endpoint</string>
     <string name="settings_endpoint_desc">URL base de la API compatible con OpenAI</string>
     <string name="settings_model_desc">Identificador del modelo de tu proveedor</string>
     <string name="settings_endpoint_placeholder">https://api.example.com/v1</string>
     <string name="settings_model_placeholder">gpt-4o, claude-3-haiku, etc.</string>
+    <string name="settings_select_model">Seleccionar modelo</string>
+    <string name="settings_models_loading">Cargando modelos…</string>
+    <string name="settings_models_error">No se pudieron cargar los modelos</string>
+    <string name="settings_models_search">Buscar modelos</string>
+    <string name="settings_models_manual">Ingresar modelo manualmente</string>
+    <string name="settings_models_no_keys">Agrega una clave API para cargar modelos</string>
+    <string name="settings_models_empty">No se encontraron modelos</string>
     <string name="settings_trigger_prefix_title">Prefijo de activación</string>
     <string name="settings_trigger_prefix_desc">Símbolo antes del nombre del comando (p. ej., %1$sfix).</string>
     <string name="settings_prefix_error_length">Debe ser exactamente 1 carácter</string>
@@ -101,6 +114,8 @@
     <string name="delete_confirm_key_title">¿Eliminar esta clave API?</string>
     <string name="delete_confirm_message">Esta acción no se puede deshacer.</string>
     <string name="delete_confirm_button">Eliminar</string>
+    <string name="delete_confirm_provider_title">¿Eliminar este proveedor?</string>
+    <string name="delete_confirm_provider_message">Esto también eliminará todas las claves API de este proveedor.</string>
     <string name="backup_export_error">Error al exportar</string>
 
     <!-- Keep-Alive / Notifications -->

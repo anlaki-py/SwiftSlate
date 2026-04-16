@@ -12,6 +12,7 @@
     <string name="dashboard_api_keys_title">Clés API</string>
     <string name="dashboard_keys_configured">%1$d clés configurées</string>
     <string name="dashboard_add_key_hint">Ajoutez une clé API pour commencer.</string>
+    <string name="dashboard_provider_info">Fournisseur : %1$s • %2$d clés</string>
     <string name="dashboard_how_to_use_title">Comment utiliser</string>
     <string name="dashboard_how_to_use_body">1. Activez le service d\'accessibilité.\n2. Ajoutez au moins une clé API.\n3. Tapez n\'importe où dans Android, en terminant par un déclencheur comme \'%1$sfix\' ou \'%1$scasual\'.\n4. Patientez un instant et le texte sera remplacé automatiquement !</string>
     <string name="dashboard_version">Version %1$s</string>
@@ -25,7 +26,8 @@
     <string name="keys_valid_added">Clé valide ajoutée !</string>
     <string name="keys_already_added">Cette clé a déjà été ajoutée</string>
     <string name="keys_validation_failed">Échec de la validation</string>
-    <string name="keys_get_api_key">Obtenez votre clé API %1$s ↗</string>
+    <string name="keys_provider_label">Clés pour %1$s</string>
+    <string name="keys_no_provider">Ajoutez d\'abord un fournisseur dans les Paramètres</string>
 
     <!-- Commands -->
     <string name="commands_title">Commandes</string>
@@ -57,15 +59,26 @@
     <!-- Settings -->
     <string name="settings_title">Paramètres</string>
     <string name="settings_provider_title">Fournisseur</string>
-    <string name="settings_provider_gemini">Google Gemini</string>
-    <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_custom">Personnalisé (compatible OpenAI)</string>
+    <string name="settings_add_provider">Ajouter un fournisseur</string>
+    <string name="settings_edit_provider">Modifier le fournisseur</string>
+    <string name="settings_delete_provider">Supprimer le fournisseur</string>
+    <string name="settings_provider_name">Nom du fournisseur</string>
+    <string name="settings_provider_name_hint">ex. Mon Gemini, API travail</string>
+    <string name="settings_no_provider">Aucun fournisseur configuré</string>
+    <string name="settings_no_provider_hint">Ajoutez un fournisseur pour commencer</string>
     <string name="settings_model_title">Modèle</string>
     <string name="settings_endpoint_title">Endpoint</string>
     <string name="settings_endpoint_desc">URL de base de l\'API compatible OpenAI</string>
     <string name="settings_model_desc">Identifiant du modèle de votre fournisseur</string>
     <string name="settings_endpoint_placeholder">https://api.example.com/v1</string>
     <string name="settings_model_placeholder">gpt-4o, claude-3-haiku, etc.</string>
+    <string name="settings_select_model">Sélectionner le modèle</string>
+    <string name="settings_models_loading">Chargement des modèles…</string>
+    <string name="settings_models_error">Impossible de charger les modèles</string>
+    <string name="settings_models_search">Rechercher des modèles</string>
+    <string name="settings_models_manual">Saisir le modèle manuellement</string>
+    <string name="settings_models_no_keys">Ajoutez une clé API pour charger les modèles</string>
+    <string name="settings_models_empty">Aucun modèle trouvé</string>
     <string name="settings_trigger_prefix_title">Préfixe de déclenchement</string>
     <string name="settings_trigger_prefix_desc">Symbole placé avant le nom de la commande (ex. %1$sfix).</string>
     <string name="settings_prefix_error_length">Doit être exactement 1 caractère</string>
@@ -101,6 +114,8 @@
     <string name="delete_confirm_key_title">Supprimer cette clé API ?</string>
     <string name="delete_confirm_message">Cette action est irréversible.</string>
     <string name="delete_confirm_button">Supprimer</string>
+    <string name="delete_confirm_provider_title">Supprimer ce fournisseur ?</string>
+    <string name="delete_confirm_provider_message">Cela supprimera également toutes les clés API de ce fournisseur.</string>
     <string name="backup_export_error">Échec de l\'exportation</string>
 
     <!-- Keep-Alive / Notifications -->

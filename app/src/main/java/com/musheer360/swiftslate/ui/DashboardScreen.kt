@@ -29,6 +29,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.service.AccessibilityHelper
 import com.musheer360.swiftslate.service.BatteryOptimizationHelper
 import com.musheer360.swiftslate.ui.components.BatteryOptimizationCard
@@ -40,12 +41,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+/**
+ * Main dashboard screen showing service status, active provider info,
+ * battery optimization state, and usage instructions.
+ *
+ * @param keyManager API key manager for key count display.
+ * @param commandManager Command manager for trigger prefix.
+ * @param providerManager Provider manager for active provider info.
+ */
 @Composable
-fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
+fun DashboardScreen(
+    keyManager: KeyManager,
+    commandManager: CommandManager,
+    providerManager: ProviderManager
+) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var isServiceEnabled by remember { mutableStateOf(AccessibilityHelper.isServiceEnabled(context)) }
-    var keyCount by remember { mutableIntStateOf(keyManager.getKeys().size) }
+    var activeProviderName by remember {
+        mutableStateOf(providerManager.getActiveProvider()?.name)
+    }
+    var keyCount by remember {
+        val provider = providerManager.getActiveProvider()
+        mutableIntStateOf(if (provider != null) keyManager.getKeys(provider.id).size else 0)
+    }
     var currentPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
     var isBatteryOptimized by remember {
         mutableStateOf(!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
@@ -67,18 +86,22 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(500) // Let navigation animation finish
             while (true) {
-                val (newEnabled, newKeyCount, newPrefix) = withContext(Dispatchers.IO) {
-                    Triple(
+                val (newEnabled, newProvider, newKeyCount, newPrefix) = withContext(Dispatchers.IO) {
+                    val provider = providerManager.getActiveProvider()
+                    val kc = if (provider != null) keyManager.getKeys(provider.id).size else 0
+                    data class Snapshot(val enabled: Boolean, val providerName: String?, val keyCount: Int, val prefix: String)
+                    Snapshot(
                         AccessibilityHelper.isServiceEnabled(context),
-                        keyManager.getKeys().size,
+                        provider?.name,
+                        kc,
                         commandManager.getTriggerPrefix()
                     )
                 }
                 if (newEnabled != isServiceEnabled) isServiceEnabled = newEnabled
+                if (newProvider != activeProviderName) activeProviderName = newProvider
                 if (newKeyCount != keyCount) keyCount = newKeyCount
                 if (newPrefix != currentPrefix) currentPrefix = newPrefix
 
-                // Poll battery optimization status alongside other checks
                 val newBatteryOptimized =
                     !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
                 if (newBatteryOptimized != isBatteryOptimized) isBatteryOptimized = newBatteryOptimized
@@ -91,7 +114,7 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { } // Creates a hardware layer for smooth NavHost slide animations
+            .graphicsLayer { }
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
@@ -146,27 +169,18 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager) {
             SlateDivider()
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // Provider + key count info
+            if (activeProviderName != null) {
                 Text(
-                    text = stringResource(R.string.dashboard_api_keys_title),
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.dashboard_keys_configured, keyCount),
+                    text = stringResource(R.string.dashboard_provider_info, activeProviderName!!, keyCount),
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-            if (keyCount == 0) {
+            } else {
                 Text(
-                    text = stringResource(R.string.dashboard_add_key_hint),
+                    text = stringResource(R.string.settings_no_provider_hint),
                     color = MaterialTheme.colorScheme.tertiaryContainer,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 6.dp)
+                    fontSize = 13.sp
                 )
             }
         }

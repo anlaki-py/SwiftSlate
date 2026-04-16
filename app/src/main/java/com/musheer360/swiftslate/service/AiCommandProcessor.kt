@@ -8,30 +8,32 @@ import com.musheer360.swiftslate.api.ApiError
 import com.musheer360.swiftslate.api.ApiException
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.model.Command
-import com.musheer360.swiftslate.model.ProviderType
+import com.musheer360.swiftslate.model.Provider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 /**
- * Handles AI-powered text transformation commands. Manages provider selection,
+ * Handles AI-powered text transformation commands. Manages provider resolution,
  * multi-key rotation with automatic fallback on rate-limit or invalid-key errors,
  * and an inline progress spinner.
  *
- * All providers (Gemini, Groq, custom) are routed through [OpenAICompatibleClient]
+ * All providers are user-defined and routed through [OpenAICompatibleClient]
  * using the standardised `/chat/completions` endpoint with strict structured output.
  *
  * @param context Application context for reading SharedPreferences.
+ * @param providerManager Provides the active user-defined provider.
  * @param keyManager Provides API keys and tracks rate-limit/invalid state.
  * @param openAIClient Unified client for all OpenAI-compatible APIs.
  * @param textReplacer Handles text replacement in accessibility nodes.
@@ -41,6 +43,7 @@ import kotlinx.coroutines.withTimeout
  */
 class AiCommandProcessor(
     private val context: Context,
+    private val providerManager: ProviderManager,
     private val keyManager: KeyManager,
     private val openAIClient: OpenAICompatibleClient,
     private val textReplacer: TextReplacer,
@@ -51,14 +54,6 @@ class AiCommandProcessor(
 
     private companion object {
         const val DEFAULT_TEMPERATURE = 0.7
-
-        /** Gemini's official OpenAI-compatible base URL. */
-        const val GEMINI_OPENAI_ENDPOINT =
-            "https://generativelanguage.googleapis.com/v1beta/openai"
-
-        /** Groq's OpenAI-compatible base URL. */
-        const val GROQ_ENDPOINT = "https://api.groq.com/openai/v1"
-
         val SPINNER_FRAMES = arrayOf("◐", "◓", "◑", "◒")
     }
 
@@ -80,23 +75,33 @@ class AiCommandProcessor(
      * @param text The cleaned user input (trigger stripped).
      * @param command The matched [Command] containing the AI prompt.
      * @param callbacks Notified on completion and original-text capture.
+     * @param temperature The sampling temperature from settings.
      * @return The launched [Job]; caller should assign to `currentJob`.
      */
     fun processCommand(
         source: AccessibilityNodeInfo,
         text: String,
         command: Command,
-        callbacks: ProcessingCallbacks
+        callbacks: ProcessingCallbacks,
+        temperature: Float
     ): Job {
         return serviceScope.launch {
             val thisJob = coroutineContext[Job]!!
-            val providerConfig = resolveProvider()
+            val provider = providerManager.getActiveProvider()
 
-            // Early exit if custom provider isn't configured
-            if (providerConfig == null) {
-                toastManager.showToast(
-                    "Custom provider not configured. Set endpoint and model in Settings."
-                )
+            // Early exit if no provider configured
+            if (provider == null) {
+                toastManager.showToast("No provider configured. Add one in Settings.")
+                withContext(NonCancellable + Dispatchers.Main) {
+                    callbacks.onProcessingComplete(thisJob)
+                    textReplacer.recycleIfUnowned(source)
+                }
+                return@launch
+            }
+
+            // Early exit if no model selected
+            if (provider.selectedModel.isBlank()) {
+                toastManager.showToast("No model selected. Choose one in Settings.")
                 withContext(NonCancellable + Dispatchers.Main) {
                     callbacks.onProcessingComplete(thisJob)
                     textReplacer.recycleIfUnowned(source)
@@ -108,11 +113,11 @@ class AiCommandProcessor(
             try {
                 withTimeout(90_000) {
                     spinnerJob = executeWithKeyRotation(
-                        source, text, command, providerConfig,
-                        callbacks, spinnerJob
+                        source, text, command, provider,
+                        temperature.toDouble(), callbacks, spinnerJob
                     )
                 }
-            } catch (e: TimeoutCancellationException) {
+            } catch (_: TimeoutCancellationException) {
                 spinnerJob?.cancelAndJoin()
                 try { textReplacer.replaceText(source, text) } catch (_: Exception) {}
                 toastManager.showToast("Request timed out")
@@ -139,48 +144,15 @@ class AiCommandProcessor(
     }
 
     /**
-     * Reads SharedPreferences to determine the active provider, model, and endpoint.
-     *
-     * @return A [ProviderConfig] with resolved settings, or null if the custom
-     *         provider is selected but not configured.
-     */
-    private fun resolveProvider(): ProviderConfig? {
-        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val type = prefs.getString("provider_type", ProviderType.GEMINI)
-            ?: ProviderType.GEMINI
-
-        return when (type) {
-            ProviderType.GEMINI -> ProviderConfig(
-                type = ProviderType.GEMINI,
-                model = prefs.getString("model", "gemini-2.5-flash-lite")
-                    ?: "gemini-2.5-flash-lite",
-                endpoint = GEMINI_OPENAI_ENDPOINT
-            )
-            ProviderType.GROQ -> ProviderConfig(
-                type = ProviderType.GROQ,
-                model = prefs.getString("groq_model", "llama-3.3-70b-versatile")
-                    ?: "llama-3.3-70b-versatile",
-                endpoint = GROQ_ENDPOINT
-            )
-            ProviderType.CUSTOM -> {
-                val model = prefs.getString("custom_model", "") ?: ""
-                val endpoint = prefs.getString("custom_endpoint", "") ?: ""
-                if (model.isBlank() || endpoint.isBlank()) null
-                else ProviderConfig(type, model, endpoint.trimEnd('/'))
-            }
-            else -> null
-        }
-    }
-
-    /**
      * Tries each available API key in turn, stopping on success or
-     * a non-retryable error. All providers use [openAIClient].
+     * a non-retryable error.
      */
     private suspend fun executeWithKeyRotation(
         source: AccessibilityNodeInfo,
         originalText: String,
         command: Command,
-        config: ProviderConfig,
+        provider: Provider,
+        temperature: Double,
         callbacks: ProcessingCallbacks,
         initialSpinnerJob: Job?
     ): Job? {
@@ -188,18 +160,18 @@ class AiCommandProcessor(
         var lastErrorMsg: String? = null
         var succeeded = false
 
-        for (attempt in 0 until keyManager.getKeys().size.coerceAtLeast(1)) {
-            val key = keyManager.getNextKey() ?: break
+        val keyCount = keyManager.getKeys(provider.id).size.coerceAtLeast(1)
+        for (attempt in 0 until keyCount) {
+            val key = keyManager.getNextKey(provider.id) ?: break
             if (spinnerJob == null) spinnerJob = startInlineSpinner(source, originalText)
 
             val result = openAIClient.generate(
                 prompt = command.prompt,
                 text = originalText,
                 apiKey = key,
-                model = config.model,
-                temperature = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                    .getFloat("temperature", DEFAULT_TEMPERATURE.toFloat()).toDouble(),
-                endpoint = config.endpoint
+                model = provider.selectedModel,
+                temperature = temperature,
+                endpoint = provider.endpoint
             )
 
             if (result.isSuccess) {
@@ -228,10 +200,7 @@ class AiCommandProcessor(
         if (!succeeded) {
             spinnerJob?.cancelAndJoin(); spinnerJob = null
             textReplacer.replaceText(source, originalText)
-            HapticHelper.performHapticFeedback(
-                context, handler, HapticFeedbackConstants.REJECT
-            )
-            showFailureToast(lastErrorMsg)
+            showFailureToast(provider.id, lastErrorMsg)
         }
         return spinnerJob
     }
@@ -239,19 +208,22 @@ class AiCommandProcessor(
     /**
      * Shows an error toast using key-state context when no explicit
      * error message exists.
+     *
+     * @param providerId The active provider's ID for key-state lookups.
+     * @param lastErrorMsg The last error message, or null.
      */
-    private suspend fun showFailureToast(lastErrorMsg: String?) {
+    private suspend fun showFailureToast(providerId: String, lastErrorMsg: String?) {
         if (lastErrorMsg != null) {
             toastManager.showToast(ErrorMessageMapper.map(lastErrorMsg))
         } else {
-            val waitMs = keyManager.getShortestWaitTimeMs()
+            val waitMs = keyManager.getShortestWaitTimeMs(providerId)
             when {
                 waitMs != null -> {
                     val waitSec = ((waitMs + 999) / 1000).coerceAtLeast(1)
                     toastManager.showToast("API key rate limited. Try again in ${waitSec}s")
                 }
-                keyManager.getKeys().isEmpty() ->
-                    toastManager.showToast("No API keys configured")
+                keyManager.getKeys(providerId).isEmpty() ->
+                    toastManager.showToast("No API keys configured for this provider")
                 else ->
                     toastManager.showToast("All API keys are invalid. Please check your keys")
             }
@@ -275,17 +247,4 @@ class AiCommandProcessor(
             }
         }
     }
-
-    /**
-     * Holds resolved provider settings.
-     *
-     * @param type The provider identifier constant from [ProviderType].
-     * @param model The model name to send in the request.
-     * @param endpoint The base URL for the OpenAI-compatible API.
-     */
-    private data class ProviderConfig(
-        val type: String,
-        val model: String,
-        val endpoint: String
-    )
 }

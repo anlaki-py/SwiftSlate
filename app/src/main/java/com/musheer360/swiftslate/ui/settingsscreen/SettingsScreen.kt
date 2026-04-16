@@ -11,6 +11,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.manager.CommandManager
+import com.musheer360.swiftslate.manager.KeyManager
+import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 
@@ -20,10 +22,17 @@ import com.musheer360.swiftslate.ui.components.SectionHeader
  * and the footer with version info.
  *
  * @param commandManager The command manager for prefix and backup operations.
+ * @param providerManager The provider manager for CRUD operations.
+ * @param keyManager The key manager for per-provider key access.
  * @param prefs SharedPreferences for provider/model settings.
  */
 @Composable
-fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
+fun SettingsScreen(
+    commandManager: CommandManager,
+    providerManager: ProviderManager,
+    keyManager: KeyManager,
+    prefs: SharedPreferences
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -35,7 +44,11 @@ fun SettingsScreen(commandManager: CommandManager, prefs: SharedPreferences) {
 
         // Provider / model / endpoint / temperature
         SectionHeader(stringResource(R.string.settings_provider_title))
-        ProviderCard(prefs = prefs)
+        ProviderCard(
+            providerManager = providerManager,
+            keyManager = keyManager,
+            prefs = prefs
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 

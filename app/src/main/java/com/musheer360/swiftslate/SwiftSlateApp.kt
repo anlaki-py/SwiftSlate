@@ -30,6 +30,7 @@ class SwiftSlateApp : Application() {
         getSharedPreferences("settings", Context.MODE_PRIVATE)
         getSharedPreferences("commands", Context.MODE_PRIVATE)
         getSharedPreferences("secure_keys_prefs", Context.MODE_PRIVATE)
+        getSharedPreferences("providers_prefs", Context.MODE_PRIVATE)
 
         // Create notification channel before any service tries to post
         NotificationHelper.createChannel(this)
@@ -38,4 +39,3 @@ class SwiftSlateApp : Application() {
         KeepAliveService.start(this)
     }
 }
-
