@@ -48,7 +48,6 @@ fun CommandsScreen(commandManager: CommandManager) {
     // Form state
     var trigger by rememberSaveable { mutableStateOf("") }
     var prompt by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedType by rememberSaveable { mutableStateOf(CommandType.AI) }
     var editingTrigger by rememberSaveable { mutableStateOf<String?>(null) }
@@ -86,7 +85,6 @@ fun CommandsScreen(commandManager: CommandManager) {
     fun resetForm() {
         trigger = ""
         prompt = ""
-        description = ""
         errorMessage = null
         editingTrigger = null
         editingBuiltInKey = null
@@ -170,7 +168,6 @@ fun CommandsScreen(commandManager: CommandManager) {
                                     cmd.trigger.replace(":<lang>", "")
                                 } else cmd.trigger
                                 prompt = cmd.prompt
-                                description = cmd.description
                                 selectedType = cmd.type
                                 editingTrigger = cmd.trigger
                                 editingBuiltInKey = cmd.builtInKey
@@ -199,7 +196,6 @@ fun CommandsScreen(commandManager: CommandManager) {
             editingBuiltInKey = editingBuiltInKey,
             trigger = trigger,
             prompt = prompt,
-            description = description,
             selectedType = selectedType,
             errorMessage = errorMessage,
             prefix = prefix,
@@ -212,7 +208,6 @@ fun CommandsScreen(commandManager: CommandManager) {
             },
             onTriggerChange = { trigger = it; errorMessage = null },
             onPromptChange = { prompt = it; errorMessage = null },
-            onDescriptionChange = { description = it },
             onTypeChange = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 selectedType = it
@@ -249,7 +244,7 @@ fun CommandsScreen(commandManager: CommandManager) {
                             trimmedTrigger.trimEnd(':')
                         } else trimmedTrigger
                         commandManager.overrideBuiltInCommand(
-                            editingBuiltInKey!!, saveTrigger, prompt.trim(), description.trim()
+                            editingBuiltInKey!!, saveTrigger, prompt.trim(), ""
                         )
                     } else {
                         // Custom command flow
@@ -258,7 +253,7 @@ fun CommandsScreen(commandManager: CommandManager) {
                         }
                         commandManager.addCustomCommand(
                             Command(trimmedTrigger, prompt.trim(), false, selectedType,
-                                description = description.trim())
+                                description = "")
                         )
                     }
                     refreshCommands()

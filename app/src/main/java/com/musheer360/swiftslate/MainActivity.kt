@@ -26,9 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.musheer360.swiftslate.service.KeepAliveService
 import com.musheer360.swiftslate.ui.commandsscreen.CommandsScreen
-import com.musheer360.swiftslate.ui.DashboardScreen
-import com.musheer360.swiftslate.ui.KeysScreen
+import com.musheer360.swiftslate.ui.dashboardscreen.DashboardScreen
+import com.musheer360.swiftslate.ui.keysscreen.KeysScreen
 import com.musheer360.swiftslate.ui.settingsscreen.SettingsScreen
+import com.musheer360.swiftslate.ui.dashboardscreen.DashboardViewModel
+import com.musheer360.swiftslate.ui.keysscreen.KeysViewModel
+import com.musheer360.swiftslate.ui.settingsscreen.SettingsViewModel
 import com.musheer360.swiftslate.ui.theme.SwiftSlateTheme
 
 enum class Tab(@StringRes val titleRes: Int, val icon: ImageVector) {
@@ -106,12 +109,15 @@ fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = viewModel()) {
         val screens = remember {
             Tab.entries.associateWith { tab ->
                 movableContentOf {
-                    when (tab) {
-                        Tab.Dashboard -> DashboardScreen(vm.keyManager, vm.commandManager, vm.providerManager)
-                        Tab.Keys -> KeysScreen(vm.keyManager, vm.providerManager)
-                        Tab.Commands -> CommandsScreen(vm.commandManager)
-                        Tab.Settings -> SettingsScreen(vm.commandManager, vm.providerManager, vm.keyManager)
-                    }
+                        val factory = AppViewModelFactory(
+                            vm.getApplication(), vm.keyManager, vm.commandManager, vm.providerManager
+                        )
+                        when (tab) {
+                            Tab.Dashboard -> DashboardScreen(viewModel<DashboardViewModel>(factory = factory))
+                            Tab.Keys -> KeysScreen(viewModel<KeysViewModel>(factory = factory))
+                            Tab.Commands -> CommandsScreen(vm.commandManager)
+                            Tab.Settings -> SettingsScreen(viewModel<SettingsViewModel>(factory = factory))
+                        }
                 }
             }
         }

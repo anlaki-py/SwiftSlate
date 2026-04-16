@@ -37,7 +37,6 @@ import com.musheer360.swiftslate.ui.components.SlateTextField
  * @param editingBuiltInKey Built-in key of the command being edited, or null.
  * @param trigger Current trigger text in the form.
  * @param prompt Current prompt text in the form.
- * @param description Current description text in the form.
  * @param selectedType Currently selected command type.
  * @param errorMessage Error message to display, or null.
  * @param prefix The current trigger prefix character.
@@ -47,7 +46,6 @@ import com.musheer360.swiftslate.ui.components.SlateTextField
  * @param onToggleExpand Callback to toggle form visibility.
  * @param onTriggerChange Callback when trigger text changes.
  * @param onPromptChange Callback when prompt text changes.
- * @param onDescriptionChange Callback when description text changes.
  * @param onTypeChange Callback when command type changes.
  * @param onCancel Callback to cancel editing.
  * @param onResetRequest Callback to request a built-in reset.
@@ -62,7 +60,6 @@ internal fun CommandFormCard(
     editingBuiltInKey: String?,
     trigger: String,
     prompt: String,
-    description: String,
     selectedType: CommandType,
     errorMessage: String?,
     prefix: String,
@@ -72,7 +69,6 @@ internal fun CommandFormCard(
     onToggleExpand: () -> Unit,
     onTriggerChange: (String) -> Unit,
     onPromptChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
     onTypeChange: (CommandType) -> Unit,
     onCancel: () -> Unit,
     onResetRequest: () -> Unit,
@@ -166,14 +162,7 @@ internal fun CommandFormCard(
                     modifier = Modifier.height(100.dp)
                 )
 
-                // Description field — optional
-                Spacer(modifier = Modifier.height(8.dp))
-                SlateTextField(
-                    value = description,
-                    onValueChange = onDescriptionChange,
-                    label = { Text(stringResource(R.string.commands_description_label)) },
-                    singleLine = true
-                )
+                // Description field removed as per request
 
                 errorMessage?.let { msg ->
                     Text(

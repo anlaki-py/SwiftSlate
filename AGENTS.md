@@ -10,6 +10,7 @@
 - Package by feature, not by layer (`feature/login/` not `ui/fragments/`).
 - Never create god files. If a file exceeds ~200 lines, split it.
 - Separate concerns strictly: `data/`, `domain/`, `ui/` layers must not cross-import.
+- `ui/` only contains ui stuff NOT the logic and such.
 
 ---
 

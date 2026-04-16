@@ -1,8 +1,5 @@
-package com.musheer360.swiftslate.ui
+package com.musheer360.swiftslate.ui.keysscreen
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -27,39 +23,20 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.domain.KeyValidation
-import com.musheer360.swiftslate.domain.KeyValidationResult
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.components.SlateItemCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
-    val context = LocalContext.current
+fun KeysScreen(viewModel: KeysViewModel) {
     val haptic = LocalHapticFeedback.current
     val uriHandler = LocalUriHandler.current
 
-    val providers = remember { providerManager.getProviders() }
-    var selectedProvider by remember { mutableStateOf(providerManager.getActiveProvider() ?: providers.firstOrNull()) }
-
-    var keys by remember(selectedProvider) {
-        mutableStateOf(selectedProvider?.id?.let { keyManager.getKeys(it) } ?: emptyList())
-    }
-
-    var keyToDelete by remember { mutableStateOf<String?>(null) }
-    var newKey by remember { mutableStateOf("") }
-    var isTesting by remember { mutableStateOf(false) }
-    var testResult by remember { mutableStateOf<String?>(null) }
-    var testSuccess by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val openAIClient = remember { OpenAICompatibleClient() }
+    val state by viewModel.uiState.collectAsState()
 
     val validAddedMsg = stringResource(R.string.keys_valid_added)
     val alreadyAddedMsg = stringResource(R.string.keys_already_added)
@@ -76,7 +53,7 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
     ) {
         ScreenTitle(stringResource(R.string.keys_title))
 
-        if (!keyManager.keystoreAvailable) {
+        if (!state.keystoreAvailable) {
             SlateCard {
                 Text(
                     text = keystoreErrorMsg,
@@ -88,7 +65,7 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
         }
 
         // Provider Selector
-        if (providers.isNotEmpty() && selectedProvider != null) {
+        if (state.providers.isNotEmpty() && state.selectedProvider != null) {
             SectionHeader("Manage keys for Provider")
             SlateCard {
                 ExposedDropdownMenuBox(
@@ -96,7 +73,7 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                     onExpandedChange = { providerExpanded = !providerExpanded }
                 ) {
                     SlateTextField(
-                        value = selectedProvider!!.name,
+                        value = state.selectedProvider!!.name,
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -107,15 +84,13 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                         expanded = providerExpanded,
                         onDismissRequest = { providerExpanded = false }
                     ) {
-                        providers.forEach { prov ->
+                        state.providers.forEach { prov ->
                             DropdownMenuItem(
                                 text = { Text(prov.name) },
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    selectedProvider = prov
+                                    viewModel.selectProvider(prov)
                                     providerExpanded = false
-                                    testResult = null
-                                    newKey = ""
                                 }
                             )
                         }
@@ -125,12 +100,12 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        if (selectedProvider != null) {
+        if (state.selectedProvider != null) {
             SectionHeader(stringResource(R.string.keys_api_key_label))
             SlateCard {
                 SlateTextField(
-                    value = newKey,
-                    onValueChange = { if (it.length <= 256) newKey = it },
+                    value = state.newKey,
+                    onValueChange = { viewModel.setNewKey(it) },
                     label = { Text(stringResource(R.string.keys_api_key_label)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation()
@@ -138,66 +113,27 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = {
-                        val prov = selectedProvider ?: return@Button
-                        if (newKey.isNotBlank()) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            isTesting = true
-                            testResult = null
-                            scope.launch {
-                                val trimmedKey = newKey.trim()
-
-                                val result = KeyValidation.validate(
-                                    key = trimmedKey,
-                                    provider = prov,
-                                    existingKeys = keys,
-                                    client = openAIClient,
-                                    fallbackErrorMessage = validationFailedMsg
-                                )
-                                isTesting = false
-
-                                when (result) {
-                                    is KeyValidationResult.Duplicate -> {
-                                        testResult = alreadyAddedMsg
-                                        testSuccess = false
-                                    }
-                                    is KeyValidationResult.Invalid -> {
-                                        testResult = result.message
-                                        testSuccess = false
-                                    }
-                                    is KeyValidationResult.Valid -> {
-                                        if (!keyManager.addKey(prov.id, trimmedKey)) {
-                                            testResult = keystoreErrorMsg
-                                            testSuccess = false
-                                            return@launch
-                                        }
-                                        keys = keyManager.getKeys(prov.id)
-                                        newKey = ""
-                                        testResult = validAddedMsg
-                                        testSuccess = true
-                                        // Clear clipboard to prevent API key leaking via paste history
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
-                                    }
-                                }
-                            }
-                        }
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.addKey(
+                            validAddedMsg, alreadyAddedMsg, validationFailedMsg, keystoreErrorMsg
+                        )
                     },
-                    enabled = newKey.isNotBlank() && !isTesting && keyManager.keystoreAvailable,
+                    enabled = state.newKey.isNotBlank() && !state.isTesting && state.keystoreAvailable,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) {
-                    Text(if (isTesting) stringResource(R.string.keys_testing) else stringResource(R.string.keys_add_key))
+                    Text(if (state.isTesting) stringResource(R.string.keys_testing) else stringResource(R.string.keys_add_key))
                 }
-                if (testResult != null) {
+                if (state.testResult != null) {
                     Text(
-                        text = testResult!!,
-                        color = if (testSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                        text = state.testResult!!,
+                        color = if (state.testSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 // Help URL
-                selectedProvider?.let { prov ->
+                state.selectedProvider?.let { prov ->
                     val (apiKeyUrl, providerName) = KeyValidation.getApiKeyUrl(prov)
                     if (apiKeyUrl != null && providerName != null) {
                         Text(
@@ -216,14 +152,14 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (keys.isNotEmpty()) {
+            if (state.keys.isNotEmpty()) {
                 SectionHeader(stringResource(R.string.dashboard_api_keys_title))
                 SlateCard {
                     LazyColumn(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        itemsIndexed(keys, key = { index, k -> "$index-${k.hashCode()}" }) { index, key ->
+                        itemsIndexed(state.keys, key = { index, k -> "$index-${k.hashCode()}" }) { index, key ->
                             SlateItemCard {
                                 Text(
                                     text = "••••••••" + key.takeLast(4),
@@ -235,7 +171,7 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                                 IconButton(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        keyToDelete = key
+                                        viewModel.setKeyToDelete(key)
                                     },
                                     modifier = Modifier.size(36.dp)
                                 ) {
@@ -259,30 +195,21 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
         }
     }
 
-    keyToDelete?.let { keyValue ->
+    state.keyToDelete?.let { keyValue ->
         AlertDialog(
-            onDismissRequest = { keyToDelete = null },
+            onDismissRequest = { viewModel.setKeyToDelete(null) },
             title = { Text(stringResource(R.string.delete_confirm_key_title)) },
             text = { Text(stringResource(R.string.delete_confirm_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    val provId = selectedProvider?.id
-                    if (provId != null) {
-                        if (keyManager.removeKey(provId, keyValue)) {
-                            keys = keyManager.getKeys(provId)
-                        } else {
-                            testResult = keystoreErrorMsg
-                            testSuccess = false
-                        }
-                    }
-                    keyToDelete = null
+                    viewModel.removeKey(keyValue, keystoreErrorMsg)
                 }) {
                     Text(stringResource(R.string.delete_confirm_button), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { keyToDelete = null }) {
+                TextButton(onClick = { viewModel.setKeyToDelete(null) }) {
                     Text(stringResource(R.string.commands_cancel))
                 }
             }

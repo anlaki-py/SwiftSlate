@@ -222,9 +222,7 @@ internal fun CommandItemContent(
                 Column {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = cmd.description.ifBlank {
-                            if (cmd.prompt.length > 80) cmd.prompt.take(77) + "\u2026" else cmd.prompt
-                        },
+                        text = if (cmd.prompt.length > 80) cmd.prompt.take(77) + "\u2026" else cmd.prompt,
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

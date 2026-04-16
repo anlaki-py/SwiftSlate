@@ -1,10 +1,9 @@
-package com.musheer360.swiftslate.ui
+package com.musheer360.swiftslate.ui.dashboardscreen
 
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,81 +23,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.manager.CommandManager
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.service.AccessibilityHelper
 import com.musheer360.swiftslate.service.BatteryOptimizationHelper
 import com.musheer360.swiftslate.ui.components.BatteryOptimizationCard
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.components.SlateDivider
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-
-import com.musheer360.swiftslate.manager.ProviderManager
-import com.musheer360.swiftslate.model.AiProvider
 
 @Composable
-fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager, providerManager: ProviderManager) {
+fun DashboardScreen(viewModel: DashboardViewModel) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    var isServiceEnabled by remember { mutableStateOf(AccessibilityHelper.isServiceEnabled(context)) }
-    var activeProvider by remember { mutableStateOf(providerManager.getActiveProvider()) }
-    var keyCount by remember { mutableIntStateOf(activeProvider?.id?.let { keyManager.getKeys(it).size } ?: 0) }
-    var currentPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
-    var isBatteryOptimized by remember {
-        mutableStateOf(!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
-    }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    val state by viewModel.uiState.collectAsState()
 
     DisposableEffect(context) {
         val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
         val listener = AccessibilityManager.AccessibilityStateChangeListener {
-            isServiceEnabled = AccessibilityHelper.isServiceEnabled(context)
+            viewModel.syncState()
         }
         am.addAccessibilityStateChangeListener(listener)
         onDispose { am.removeAccessibilityStateChangeListener(listener) }
-    }
-
-    LaunchedEffect(lifecycleOwner) {
-        val lifecycle = lifecycleOwner.lifecycle
-        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            delay(500) // Let navigation animation finish
-            while (true) {
-                val results = withContext(Dispatchers.IO) {
-                    val activeId = providerManager.getActiveProviderId()
-                    listOf(
-                        AccessibilityHelper.isServiceEnabled(context),
-                        keyManager.getKeys(activeId).size,
-                        commandManager.getTriggerPrefix(),
-                        providerManager.getActiveProvider()
-                    )
-                }
-                
-                val newEnabled = results[0] as Boolean
-                val newKeyCount = results[1] as Int
-                val newPrefix = results[2] as String
-                val newProvider = results[3] as AiProvider?
-
-                if (newEnabled != isServiceEnabled) isServiceEnabled = newEnabled
-                if (newKeyCount != keyCount) keyCount = newKeyCount
-                if (newPrefix != currentPrefix) currentPrefix = newPrefix
-                if (newProvider?.id != activeProvider?.id) activeProvider = newProvider
-
-                // Poll battery optimization status alongside other checks
-                val newBatteryOptimized =
-                    !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
-                if (newBatteryOptimized != isBatteryOptimized) isBatteryOptimized = newBatteryOptimized
-
-                delay(3000)
-            }
-        }
     }
 
     Column(
@@ -123,20 +69,20 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager, prov
                             .size(8.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isServiceEnabled) MaterialTheme.colorScheme.tertiary
+                                if (state.isServiceEnabled) MaterialTheme.colorScheme.tertiary
                                 else MaterialTheme.colorScheme.error
                             )
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = if (isServiceEnabled) stringResource(R.string.service_status_active)
+                        text = if (state.isServiceEnabled) stringResource(R.string.service_status_active)
                         else stringResource(R.string.service_status_inactive),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                if (!isServiceEnabled) {
+                if (!state.isServiceEnabled) {
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -155,40 +101,13 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager, prov
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            SlateDivider()
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "API Keys (${activeProvider?.name ?: "None"})",
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.dashboard_keys_configured, keyCount),
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            if (keyCount == 0) {
-                Text(
-                    text = stringResource(R.string.dashboard_add_key_hint),
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
         SectionHeader(stringResource(R.string.battery_optimization_title))
         BatteryOptimizationCard(
-            isBatteryOptimized = isBatteryOptimized,
+            isBatteryOptimized = state.isBatteryOptimized,
             onUnrestrictClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
@@ -200,7 +119,7 @@ fun DashboardScreen(keyManager: KeyManager, commandManager: CommandManager, prov
         SectionHeader(stringResource(R.string.dashboard_how_to_use_title))
         SlateCard {
             Text(
-                text = stringResource(R.string.dashboard_how_to_use_body, currentPrefix),
+                text = stringResource(R.string.dashboard_how_to_use_body, state.currentPrefix),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 15.sp,
                 lineHeight = 24.sp

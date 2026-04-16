@@ -9,14 +9,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.manager.CommandManager
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 
 @Composable
-fun SettingsScreen(commandManager: CommandManager, providerManager: ProviderManager, keyManager: KeyManager) {
+fun SettingsScreen(viewModel: SettingsViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -28,19 +25,19 @@ fun SettingsScreen(commandManager: CommandManager, providerManager: ProviderMana
 
         // Provider / model / endpoint
         SectionHeader(stringResource(R.string.settings_provider_title))
-        ProviderCard(providerManager = providerManager, keyManager = keyManager)
+        ProviderCard(viewModel = viewModel)
 
         Spacer(modifier = Modifier.height(12.dp))
 
         // Trigger prefix
         SectionHeader(stringResource(R.string.settings_trigger_prefix_title))
-        TriggerPrefixCard(commandManager = commandManager)
+        TriggerPrefixCard(viewModel = viewModel)
 
         Spacer(modifier = Modifier.height(12.dp))
 
         // Backup / restore
         SectionHeader(stringResource(R.string.backup_title))
-        BackupCard(commandManager = commandManager)
+        BackupCard(viewModel = viewModel)
 
         Spacer(modifier = Modifier.height(24.dp))
 
