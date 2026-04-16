@@ -115,7 +115,6 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        SectionHeader(stringResource(R.string.keys_api_key_label))
         SlateCard {
             SlateTextField(
                 value = newKey,
@@ -189,7 +188,6 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
         Spacer(modifier = Modifier.height(20.dp))
 
         if (keys.isNotEmpty()) {
-            SectionHeader(stringResource(R.string.dashboard_api_keys_title))
             SlateCard {
                 LazyColumn(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)),
