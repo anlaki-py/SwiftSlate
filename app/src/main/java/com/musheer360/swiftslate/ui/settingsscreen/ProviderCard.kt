@@ -137,22 +137,29 @@ internal fun ProviderCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Model selector button
+            // Model selector — clickable surface that opens the model picker
             val modelLabel = activeProvider!!.selectedModel.ifBlank {
                 stringResource(R.string.settings_select_model)
             }
-            SlateTextField(
-                value = modelLabel,
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .noRippleClickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        fetchModelsForProvider(activeProvider!!)
-                        showModelPicker = true
-                    }
-            )
+            val hasModel = activeProvider!!.selectedModel.isNotBlank()
+            Surface(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    fetchModelsForProvider(activeProvider!!)
+                    showModelPicker = true
+                },
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = modelLabel,
+                    fontSize = 15.sp,
+                    color = if (hasModel) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                )
+            }
         } else {
             // No provider hint
             Spacer(modifier = Modifier.height(12.dp))
