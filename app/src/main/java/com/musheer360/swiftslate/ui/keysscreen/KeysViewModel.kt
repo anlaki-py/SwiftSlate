@@ -71,8 +71,7 @@ class KeysViewModel(
 
     fun addKey(
         validAddedMsg: String,
-        alreadyAddedMsg: String,
-        keystoreErrorMsg: String
+        alreadyAddedMsg: String
     ) {
         val currentState = _uiState.value
         val provider = currentState.selectedProvider ?: return

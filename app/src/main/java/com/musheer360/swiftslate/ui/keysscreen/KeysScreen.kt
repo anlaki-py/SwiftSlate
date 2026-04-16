@@ -115,7 +115,7 @@ fun KeysScreen(viewModel: KeysViewModel) {
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.addKey(
-                            validAddedMsg, alreadyAddedMsg, validationFailedMsg, keystoreErrorMsg
+                            validAddedMsg, alreadyAddedMsg
                         )
                     },
                     enabled = state.newKey.isNotBlank() && !state.isTesting && state.keystoreAvailable,
