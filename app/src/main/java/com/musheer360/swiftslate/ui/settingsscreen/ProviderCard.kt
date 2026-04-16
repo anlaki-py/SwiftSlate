@@ -1,6 +1,6 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -145,7 +145,7 @@ internal fun ProviderCard(
                 value = modelLabel,
                 onValueChange = {},
                 readOnly = true,
-                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                modifier = Modifier
                     .fillMaxWidth()
                     .noRippleClickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)

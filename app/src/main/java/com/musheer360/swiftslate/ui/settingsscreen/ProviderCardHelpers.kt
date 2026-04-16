@@ -51,7 +51,7 @@ internal fun ProviderDropdown(
             value = activeProvider?.name ?: stringResource(R.string.settings_no_provider),
             onValueChange = {},
             readOnly = true,
-            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+            modifier = Modifier.menuAnchor()
         )
         ExposedDropdownMenu(
             containerColor = MaterialTheme.colorScheme.surface,
