@@ -60,6 +60,7 @@ internal fun ProviderCard(
     var modelFetchError by remember { mutableStateOf<String?>(null) }
 
     var temperature by remember { mutableStateOf(prefs.getFloat("temperature", 0.7f)) }
+    var timeout by remember { mutableStateOf(prefs.getFloat("timeout", 10f)) }
 
     /** Fetches models for the active provider using its first available key. */
     fun fetchModelsForProvider(provider: Provider) {
@@ -172,6 +173,8 @@ internal fun ProviderCard(
 
         Spacer(modifier = Modifier.height(8.dp))
         TemperatureSlider(temperature, haptic, prefs) { temperature = it }
+        Spacer(modifier = Modifier.height(16.dp))
+        TimeoutSlider(timeout, haptic, prefs) { timeout = it }
     }
 
     // -- Dialogs --

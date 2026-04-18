@@ -89,6 +89,7 @@
     <string name="settings_endpoint_error_spaces">URL cannot contain spaces</string>
     <string name="settings_temperature_title">Temperature</string>
     <string name="settings_temperature_desc">AI response creativity</string>
+    <string name="settings_timeout_desc" translatable="false">Timeout (seconds)</string>
 
     <!-- Backup -->
     <string name="backup_title">Backup &amp; Restore</string>

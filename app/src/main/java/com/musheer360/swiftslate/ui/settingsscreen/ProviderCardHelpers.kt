@@ -168,6 +168,84 @@ internal fun TemperatureSlider(
 }
 
 /**
+ * Inline timeout slider with label and current value display.
+ * Range: 5–60 in 1 steps. Saves to SharedPreferences on release.
+ *
+ * @param timeout Current timeout value.
+ * @param haptic Haptic feedback provider.
+ * @param prefs SharedPreferences to persist the value.
+ * @param onTimeoutChange Callback when timeout changes.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TimeoutSlider(
+    timeout: Float,
+    haptic: HapticFeedback,
+    prefs: SharedPreferences,
+    onTimeoutChange: (Float) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.settings_timeout_desc),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = "${timeout.toInt()}s",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+    Spacer(modifier = Modifier.height(6.dp))
+
+    val sliderState = rememberSliderState(
+        value = timeout,
+        valueRange = 5f..60f,
+        steps = 54,
+        onValueChangeFinished = {
+            prefs.edit().putFloat("timeout", timeout).apply()
+        }
+    )
+    val sliderInteraction = remember { MutableInteractionSource() }
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline
+    )
+
+    LaunchedEffect(sliderState.value) {
+        val newVal = Math.round(sliderState.value).toFloat()
+        if (newVal != timeout) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onTimeoutChange(newVal)
+        }
+    }
+
+    Slider(
+        state = sliderState,
+        interactionSource = sliderInteraction,
+        modifier = Modifier.fillMaxWidth().height(26.dp),
+        thumb = {
+            SliderDefaults.Thumb(
+                interactionSource = sliderInteraction,
+                colors = sliderColors
+            )
+        },
+        track = {
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                colors = sliderColors
+            )
+        }
+    )
+}
+
+/**
  * Clickable modifier that suppresses the default ripple indication.
  * Used for text fields that act as tap targets (e.g. model selector).
  *

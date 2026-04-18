@@ -112,11 +112,13 @@ class AiCommandProcessor(
             }
 
             var spinnerJob: Job? = null
+            val timeoutSecs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE).getFloat("timeout", 10f)
+            
             try {
-                withTimeout(90_000) {
+                withTimeout((timeoutSecs * 1000).toLong()) {
                     spinnerJob = executeWithKeyRotation(
                         source, text, command, provider,
-                        temperature.toDouble(), callbacks, spinnerJob
+                        temperature.toDouble(), callbacks, spinnerJob, thisJob
                     )
                 }
             } catch (_: TimeoutCancellationException) {
@@ -156,7 +158,8 @@ class AiCommandProcessor(
         provider: Provider,
         temperature: Double,
         callbacks: ProcessingCallbacks,
-        initialSpinnerJob: Job?
+        initialSpinnerJob: Job?,
+        parentJobToCancel: Job?
     ): Job? {
         var spinnerJob = initialSpinnerJob
         var lastErrorMsg: String? = null
@@ -165,7 +168,7 @@ class AiCommandProcessor(
         val keyCount = keyManager.getKeys(provider.id).size.coerceAtLeast(1)
         for (attempt in 0 until keyCount) {
             val key = keyManager.getNextKey(provider.id) ?: break
-            if (spinnerJob == null) spinnerJob = startInlineSpinner(source, originalText)
+            if (spinnerJob == null) spinnerJob = startInlineSpinner(source, originalText, parentJobToCancel)
 
             val result = openAIClient.generate(
                 prompt = command.prompt,
@@ -239,11 +242,14 @@ class AiCommandProcessor(
      * @param baseText The user's original text shown before the spinner.
      * @return A [Job] that runs the animation loop.
      */
-    private fun startInlineSpinner(source: AccessibilityNodeInfo, baseText: String): Job {
+    private fun startInlineSpinner(source: AccessibilityNodeInfo, baseText: String, parentJobToCancel: Job?): Job {
         return serviceScope.launch(Dispatchers.Main) {
             var frameIndex = 0
             while (isActive) {
-                if (!textReplacer.setFieldText(source, "$baseText ${SPINNER_FRAMES[frameIndex]}")) break
+                if (!textReplacer.setFieldText(source, "$baseText ${SPINNER_FRAMES[frameIndex]}")) {
+                    parentJobToCancel?.cancel()
+                    break
+                }
                 frameIndex = (frameIndex + 1) % SPINNER_FRAMES.size
                 delay(200)
             }
