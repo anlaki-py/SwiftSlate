@@ -10,6 +10,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#)
 [![License: MIT](https://img.shields.io/badge/MIT-blue?style=for-the-badge)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/anlaki-py/SwiftSlate?style=flat-square&label=Latest&color=brightgreen)](https://github.com/anlaki-py/SwiftSlate/releases/latest)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/unluky)
 
 **A more polished and dependable fork of [Musheer Alam](https://github.com/Musheer360)'s original project — with multi‑provider support, built‑in command overrides, and background reliability enhancements.**
 
