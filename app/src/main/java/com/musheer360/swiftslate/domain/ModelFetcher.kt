@@ -100,7 +100,7 @@ object ModelFetcher {
             val data = json.optJSONArray("data") ?: return emptyList()
             (0 until data.length()).mapNotNull { i ->
                 data.getJSONObject(i).optString("id", null)
-            }.filter { it.isNotBlank() }
+            }.filter { it.isNotBlank() }.distinct()
         } catch (_: Exception) {
             emptyList()
         }

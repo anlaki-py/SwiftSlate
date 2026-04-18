@@ -131,7 +131,7 @@ internal fun ModelPickerSheet(
                     .heightIn(max = 320.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(filteredModels, key = { it }) { model ->
+                items(filteredModels) { model ->
                     val isSelected = model == selectedModel
                     ModelListItem(model, isSelected) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
