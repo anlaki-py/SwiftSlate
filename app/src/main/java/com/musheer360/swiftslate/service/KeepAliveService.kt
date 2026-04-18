@@ -114,8 +114,20 @@ class KeepAliveService : Service() {
          */
         fun start(context: Context) {
             try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        android.util.Log.w("KeepAliveService", "POST_NOTIFICATIONS permission not granted")
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        android.util.Log.w("KeepAliveService", "FOREGROUND_SERVICE_SPECIAL_USE permission not granted")
+                    }
+                }
                 val intent = Intent(context, KeepAliveService::class.java)
                 ContextCompat.startForegroundService(context, intent)
+            } catch (e: SecurityException) {
+                android.util.Log.e("KeepAliveService", "SecurityException starting service: \${e.message}", e)
             } catch (_: Exception) {
                 // Silently ignore — the service will be started from the
                 // next allowed context (Activity, AccessibilityService, etc.)

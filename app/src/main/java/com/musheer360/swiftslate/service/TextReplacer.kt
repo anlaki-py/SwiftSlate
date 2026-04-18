@@ -104,18 +104,6 @@ class TextReplacer(
     }
 
     /**
-     * Recycles [source] only if it was NOT captured by [scheduleTextVerification].
-     * Prevents double-recycle when verification has taken ownership of the node.
-     *
-     * @param source The node to conditionally recycle.
-     */
-    fun recycleIfUnowned(source: AccessibilityNodeInfo) {
-        if (lastReplacedSource !== source) {
-            try { source.recycle() } catch (_: Exception) {}
-        }
-    }
-
-    /**
      * Clears all tracked replacement state and recycles any held node.
      * Called during service interrupt or destruction.
      */
@@ -140,7 +128,7 @@ class TextReplacer(
         lastReplacedText = null
         val prev = lastReplacedSource
         lastReplacedSource = null
-        if (prev != null && prev !== source) {
+        if (prev != null) {
             try { prev.recycle() } catch (_: Exception) {}
         }
     }
@@ -207,14 +195,14 @@ class TextReplacer(
     private fun scheduleTextVerification(source: AccessibilityNodeInfo, expectedText: String) {
         lastReplacedText = expectedText
         lastReplacedAt = System.currentTimeMillis()
-        // Recycle the previous source if it's a different node
+        
+        val capturedSource = AccessibilityNodeInfo.obtain(source)
         val prev = lastReplacedSource
-        if (prev != null && prev !== source) {
+        if (prev != null) {
             try { prev.recycle() } catch (_: Exception) {}
         }
-        lastReplacedSource = source
+        lastReplacedSource = capturedSource
         verifyRunnable?.let { handler.removeCallbacks(it) }
-        val capturedSource = source
         val runnable = Runnable {
             try {
                 if (!capturedSource.refresh()) return@Runnable
@@ -248,6 +236,7 @@ class TextReplacer(
         if (!handler.postDelayed(runnable, 300)) {
             lastReplacedText = null
             lastReplacedAt = 0L
+            try { capturedSource.recycle() } catch (_: Exception) {}
             lastReplacedSource = null
         }
     }

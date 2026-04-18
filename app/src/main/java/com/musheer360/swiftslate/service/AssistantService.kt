@@ -130,11 +130,13 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
     }
 
     /** Common setup before any command handler: acquire lock, arm watchdog, cancel prior job. */
-    private fun beginProcessing(): Boolean {
-        if (!isProcessing.compareAndSet(false, true)) return false
+    private fun beginProcessing(): Job? {
+        if (!isProcessing.compareAndSet(false, true)) return null
         processingStartedAt = System.currentTimeMillis()
-        startWatchdog(); cancelPendingProcessingReset(); currentJob?.cancel()
-        return true
+        startWatchdog(); cancelPendingProcessingReset()
+        val oldJob = currentJob
+        oldJob?.cancel()
+        return oldJob ?: Job().apply { complete() }
     }
 
     // -- Event handling --
@@ -171,20 +173,26 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
         when {
             command.builtInKey == "undo" -> {
-                if (!beginProcessing()) { source.recycle(); return }
-                handleUndo(source, cleanText)
+                val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
+                handleUndo(source, cleanText, oldJob)
             }
-            command.type == CommandType.TEXT_REPLACER -> handleTextReplacer(source, precedingText, command)
-            command.type == CommandType.AI -> handleAiCommand(source, cleanText, command)
+            command.type == CommandType.TEXT_REPLACER -> {
+                val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
+                handleTextReplacer(source, precedingText, command, oldJob)
+            }
+            command.type == CommandType.AI -> {
+                val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
+                handleAiCommand(source, cleanText, command, oldJob)
+            }
         }
     }
 
     // -- Command handlers --
 
     /** Replaces trigger text with the command's literal prompt. */
-    private fun handleTextReplacer(source: AccessibilityNodeInfo, precedingText: String, command: Command) {
-        if (!beginProcessing()) { source.recycle(); return }
+    private fun handleTextReplacer(source: AccessibilityNodeInfo, precedingText: String, command: Command, oldJob: Job) {
         currentJob = serviceScope.launch {
+            oldJob.join()
             val thisJob = coroutineContext[Job]
             try {
                 withContext(Dispatchers.Main) {
@@ -198,23 +206,20 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
                     if (currentJob === thisJob) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
-                    textReplacer.recycleIfUnowned(source)
+                    try { source.recycle() } catch (_: Exception) {}
                 }
             }
         }
     }
 
     /** Validates preconditions then delegates to [AiCommandProcessor]. */
-    private fun handleAiCommand(source: AccessibilityNodeInfo, cleanText: String, command: Command) {
-        if (cleanText.isEmpty()) { source.recycle(); return }
-        if (!beginProcessing()) { source.recycle(); return }
-
+    private fun handleAiCommand(source: AccessibilityNodeInfo, cleanText: String, command: Command, oldJob: Job) {
         if (!keyManager.keystoreAvailable) {
             handler.post {
                 Toast.makeText(applicationContext, "Secure key storage unavailable. Please reinstall the app.", Toast.LENGTH_LONG).show()
             }
             cancelWatchdog(); processingStartedAt = 0L; isProcessing.set(false)
-            textReplacer.recycleIfUnowned(source); return
+            try { source.recycle() } catch (_: Exception) {}; return
         }
 
         val temperature = applicationContext
@@ -222,13 +227,14 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             .getFloat("temperature", 0.7f)
 
         currentJob = aiCommandProcessor.processCommand(
-            source, cleanText, command, this, temperature
+            source, cleanText, command, this, temperature, oldJob
         )
     }
 
     /** Swaps current text with the previously captured original (single-level toggle). */
-    private fun handleUndo(source: AccessibilityNodeInfo, currentText: String) {
+    private fun handleUndo(source: AccessibilityNodeInfo, currentText: String, oldJob: Job) {
         currentJob = serviceScope.launch {
+            oldJob.join()
             val thisJob = coroutineContext[Job]
             try {
                 val prev = lastOriginalText; val undoId = lastUndoSourceId
@@ -245,7 +251,7 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
                     if (currentJob === thisJob) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
-                    textReplacer.recycleIfUnowned(source)
+                    try { source.recycle() } catch (_: Exception) {}
                 }
             }
         }

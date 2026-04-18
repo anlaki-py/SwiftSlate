@@ -11,6 +11,7 @@ System-wide AI text assistant for Android. Users may input a specific trigger, s
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white)](#getting-started)
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](#tech-stack)
 [![License: MIT](https://img.shields.io/badge/MIT-blue?style=flat-square)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/unluky)
 
 </div>
 

@@ -83,10 +83,12 @@ class AiCommandProcessor(
         text: String,
         command: Command,
         callbacks: ProcessingCallbacks,
-        temperature: Float
+        temperature: Float,
+        previousJob: Job? = null
     ): Job {
         return serviceScope.launch {
             val thisJob = coroutineContext[Job]!!
+            previousJob?.join()
             val provider = providerManager.getActiveProvider()
 
             // Early exit if no provider configured
@@ -94,7 +96,7 @@ class AiCommandProcessor(
                 toastManager.showToast("No provider configured. Add one in Settings.")
                 withContext(NonCancellable + Dispatchers.Main) {
                     callbacks.onProcessingComplete(thisJob)
-                    textReplacer.recycleIfUnowned(source)
+                    try { source.recycle() } catch (_: Exception) {}
                 }
                 return@launch
             }
@@ -104,7 +106,7 @@ class AiCommandProcessor(
                 toastManager.showToast("No model selected. Choose one in Settings.")
                 withContext(NonCancellable + Dispatchers.Main) {
                     callbacks.onProcessingComplete(thisJob)
-                    textReplacer.recycleIfUnowned(source)
+                    try { source.recycle() } catch (_: Exception) {}
                 }
                 return@launch
             }
@@ -137,7 +139,7 @@ class AiCommandProcessor(
                 withContext(NonCancellable + Dispatchers.Main) {
                     callbacks.onProcessingComplete(thisJob)
                     spinnerJob?.cancel()
-                    textReplacer.recycleIfUnowned(source)
+                    try { source.recycle() } catch (_: Exception) {}
                 }
             }
         }
