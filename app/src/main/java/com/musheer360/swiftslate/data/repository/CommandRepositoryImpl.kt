@@ -6,6 +6,8 @@ import com.musheer360.swiftslate.manager.CommandConstants
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import com.musheer360.swiftslate.data.local.CommandEntity
 import com.musheer360.swiftslate.data.local.toDomain
@@ -23,8 +25,9 @@ class CommandRepositoryImpl @Inject constructor(
 
     private var cachedPrefix: String = CommandConstants.DEFAULT_PREFIX
 
-    override fun observeCommands(): Flow<List<Command>> {
-        return commandDao.observeAll().map { entities ->
+    override fun observeCommands(): Flow<List<Command>> = flow {
+        seedIfEmpty()
+        emitAll(commandDao.observeAll().map { entities ->
             val prefix = cachedPrefix
             val overrides = overrideDao.getAll().associateBy { it.builtInKey }
 
@@ -47,7 +50,7 @@ class CommandRepositoryImpl @Inject constructor(
                     } else true
                 }
                 .sortedByDescending { it.trigger.length }
-        }
+        })
     }
 
     override fun getTriggerPrefix(): String = cachedPrefix
@@ -76,6 +79,7 @@ class CommandRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getCommands(): List<Command> {
+        seedIfEmpty()
         val entities = commandDao.getAll()
         val overrides = overrideDao.getAll().associateBy { it.builtInKey }
         val prefix = cachedPrefix
@@ -270,6 +274,23 @@ class CommandRepositoryImpl @Inject constructor(
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    private suspend fun seedIfEmpty() {
+        if (commandDao.count() == 0) {
+            commandDao.upsertAll(
+                CommandConstants.BUILT_IN_DEFINITIONS.map { def ->
+                    CommandEntity(
+                        trigger = "$cachedPrefix${def.key}",
+                        prompt = def.prompt,
+                        type = CommandType.AI.name,
+                        isBuiltIn = true,
+                        builtInKey = def.key,
+                        description = def.description
+                    )
+                }
+            )
         }
     }
 

@@ -84,6 +84,7 @@ fun CommandsScreen(viewModel: SwiftSlateViewModel) {
                     items(filteredBuiltIn, key = { it.trigger }) { cmd ->
                         CommandListItem(
                             command = cmd,
+                            isUndeletable = viewModel.commandRepository.isUndeletable(cmd.builtInKey!!),
                             onEdit = { editingCommand = cmd },
                             onDelete = {
                                 scope.launch {

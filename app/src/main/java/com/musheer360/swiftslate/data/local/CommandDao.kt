@@ -32,4 +32,7 @@ interface CommandDao {
 
     @Query("SELECT * FROM commands WHERE isBuiltIn = 1")
     suspend fun getBuiltIn(): List<CommandEntity>
+
+    @Query("SELECT COUNT(*) FROM commands")
+    suspend fun count(): Int
 }

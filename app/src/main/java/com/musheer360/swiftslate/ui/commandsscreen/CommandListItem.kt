@@ -2,8 +2,9 @@ package com.musheer360.swiftslate.ui.commandsscreen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ import com.musheer360.swiftslate.ui.components.SlateItemCard
 @Composable
 fun CommandListItem(
     command: Command,
+    isUndeletable: Boolean = false,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReset: (() -> Unit)?
@@ -69,29 +71,41 @@ fun CommandListItem(
             )
         }
 
-        if (onReset != null) {
+        if (onReset != null && command.isOverridden) {
+            IconButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onReset()
+            }, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.commands_reset_command),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        if (!isUndeletable) {
             IconButton(onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 showDeleteConfirm = true
             }, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    imageVector = if (command.isOverridden) Icons.Default.Edit else Icons.Default.Delete,
-                    contentDescription = stringResource(
-                        if (command.isOverridden) R.string.commands_reset_command
-                        else R.string.commands_delete_command
-                    ),
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.commands_delete_command),
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
+
         IconButton(onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             onEdit()
         }, modifier = Modifier.size(36.dp)) {
             Icon(
                 imageVector = Icons.Default.Edit,
-                contentDescription = stringResource(if (command.isBuiltIn) R.string.commands_edit_command else R.string.commands_edit_command),
+                contentDescription = stringResource(R.string.commands_edit_command),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
@@ -101,22 +115,11 @@ fun CommandListItem(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = {
-                Text(
-                    if (command.isOverridden) stringResource(R.string.commands_reset_confirm_title)
-                    else stringResource(R.string.delete_confirm_command_title)
-                )
-            },
-            text = {
-                Text(
-                    if (command.isOverridden) stringResource(R.string.commands_reset_confirm_message)
-                    else stringResource(R.string.delete_confirm_message)
-                )
-            },
+            title = { Text(stringResource(R.string.delete_confirm_command_title)) },
+            text = { Text(stringResource(R.string.delete_confirm_message)) },
             confirmButton = {
                 TextButton(onClick = {
-                    if (command.isOverridden && onReset != null) onReset()
-                    else onDelete()
+                    onDelete()
                     showDeleteConfirm = false
                 }) {
                     Text(
