@@ -90,7 +90,7 @@
     <string name="settings_temperature_desc">AI प्रतिक्रिया की रचनात्मकता</string>
 
     <!-- Backup -->
-    <string name="backup_title">बैकअप & पुनर्स्थापना</string>
+    <string name="backup_title">बैकअप और पुनर्स्थापना</string>
     <string name="backup_desc">अपने कमांड, ओवरराइड और सेटिंग्स को JSON फ़ाइल के रूप में निर्यात या आयात करें।</string>
     <string name="backup_export">निर्यात करें</string>
     <string name="backup_import">आयात करें</string>

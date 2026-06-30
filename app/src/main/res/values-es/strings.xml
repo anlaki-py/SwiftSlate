@@ -90,7 +90,7 @@
     <string name="settings_temperature_desc">Creatividad de la respuesta de IA</string>
 
     <!-- Backup -->
-    <string name="backup_title">Copia de seguridad & Restauración</string>
+    <string name="backup_title">Copia de seguridad y Restauracion</string>
     <string name="backup_desc">Exporta o importa tus comandos, sobreescribir y ajustes como archivo JSON.</string>
     <string name="backup_export">Exportar</string>
     <string name="backup_import">Importar</string>

@@ -90,7 +90,7 @@
     <string name="settings_temperature_desc">AI 回复的创造性</string>
 
     <!-- Backup -->
-    <string name="backup_title">备份 & 恢复</string>
+    <string name="backup_title">备份和恢复</string>
     <string name="backup_desc">将命令、覆盖和设置导出或导入为 JSON 文件。</string>
     <string name="backup_export">导出</string>
     <string name="backup_import">导入</string>

@@ -91,7 +91,7 @@
     <string name="settings_temperature_desc">Kreativität der KI-Antwort</string>
 
     <!-- Backup -->
-    <string name="backup_title">Sicherung & Wiederherstellung</string>
+    <string name="backup_title">Sicherung und Wiederherstellung</string>
     <string name="backup_desc">Exportiere oder importiere deine Befehle, Overrides und Einstellungen als JSON-Datei.</string>
     <string name="backup_export">Exportieren</string>
     <string name="backup_import">Importieren</string>
