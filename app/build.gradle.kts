@@ -45,6 +45,11 @@ android {
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.findByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        beta {
+            initWith(release)
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
