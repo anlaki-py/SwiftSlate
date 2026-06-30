@@ -1,27 +1,17 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.domain.EndpointValidation
-import com.musheer360.swiftslate.domain.EndpointValidationResult
 import com.musheer360.swiftslate.ui.components.SlateTextField
 
-/**
- * Dialog for adding or editing a provider. Collects a name and endpoint URL,
- * validates the endpoint, and calls back on save.
- *
- * @param initialName Pre-filled name (empty for new providers).
- * @param initialEndpoint Pre-filled endpoint URL (empty for new providers).
- * @param title Dialog title string.
- * @param onSave Callback with (name, endpoint) when the user confirms.
- * @param onDismiss Callback to close the dialog.
- */
 @Composable
 internal fun ProviderFormDialog(
     initialName: String = "",
@@ -32,12 +22,7 @@ internal fun ProviderFormDialog(
 ) {
     var name by remember { mutableStateOf(initialName) }
     var endpoint by remember { mutableStateOf(initialEndpoint) }
-    var endpointError by remember { mutableStateOf<String?>(null) }
-
-    val endpointErrorScheme = stringResource(R.string.settings_endpoint_error_scheme)
-    val endpointErrorSpaces = stringResource(R.string.settings_endpoint_error_spaces)
-
-    val isValid = name.isNotBlank() && endpoint.isNotBlank() && endpointError == null
+    var endpointError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -51,40 +36,32 @@ internal fun ProviderFormDialog(
                     placeholder = { Text(stringResource(R.string.settings_provider_name_hint)) },
                     singleLine = true
                 )
-
                 SlateTextField(
                     value = endpoint,
-                    onValueChange = {
-                        endpoint = it
-                        val result = EndpointValidation.validate(it)
-                        endpointError = when (result) {
-                            is EndpointValidationResult.Valid -> null
-                            is EndpointValidationResult.Error -> when (result.messageKey) {
-                                "spaces" -> endpointErrorSpaces
-                                else -> endpointErrorScheme
-                            }
-                        }
-                    },
+                    onValueChange = { endpoint = it; endpointError = false },
                     label = { Text(stringResource(R.string.settings_endpoint_title)) },
                     placeholder = { Text(stringResource(R.string.settings_endpoint_placeholder)) },
-                    singleLine = true,
-                    isError = endpointError != null
+                    isError = endpointError,
+                    singleLine = true
                 )
-
-                endpointError?.let { msg ->
+                if (endpointError) {
                     Text(
-                        text = msg,
+                        text = stringResource(R.string.settings_endpoint_error_scheme),
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = MaterialTheme.typography.bodySmall.fontSize
+                        fontSize = 13.sp
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onSave(name.trim(), endpoint.trim().trimEnd('/')) },
-                enabled = isValid
-            ) {
+            TextButton(onClick = {
+                val validation = EndpointValidation.validate(endpoint.trim())
+                if (validation is EndpointValidationResult.Error) {
+                    endpointError = true
+                } else {
+                    onSave(name.trim(), endpoint.trim())
+                }
+            }) {
                 Text(stringResource(R.string.commands_save_command))
             }
         },
@@ -92,7 +69,6 @@ internal fun ProviderFormDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.commands_cancel))
             }
-        },
-        shape = RoundedCornerShape(16.dp)
+        }
     )
 }

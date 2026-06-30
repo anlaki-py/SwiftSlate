@@ -7,6 +7,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.content.ContextCompat
+import timber.log.Timber
 
 /**
  * A minimal foreground service whose only purpose is to keep the app process
@@ -116,18 +117,19 @@ class KeepAliveService : Service() {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        android.util.Log.w("KeepAliveService", "POST_NOTIFICATIONS permission not granted")
+                        Timber.w("POST_NOTIFICATIONS permission not granted")
                     }
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        android.util.Log.w("KeepAliveService", "FOREGROUND_SERVICE_SPECIAL_USE permission not granted")
+                        Timber.w("FOREGROUND_SERVICE_SPECIAL_USE permission not granted")
                     }
                 }
                 val intent = Intent(context, KeepAliveService::class.java)
                 ContextCompat.startForegroundService(context, intent)
+                Timber.d("KeepAliveService started")
             } catch (e: SecurityException) {
-                android.util.Log.e("KeepAliveService", "SecurityException starting service: \${e.message}", e)
+                Timber.e(e, "SecurityException starting KeepAliveService")
             } catch (_: Exception) {
                 // Silently ignore — the service will be started from the
                 // next allowed context (Activity, AccessibilityService, etc.)

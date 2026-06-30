@@ -25,11 +25,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.api.OpenAICompatibleClient
+import com.musheer360.swiftslate.SwiftSlateViewModel
 import com.musheer360.swiftslate.domain.KeyValidation
 import com.musheer360.swiftslate.domain.KeyValidationResult
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.manager.ProviderManager
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard
@@ -37,21 +35,12 @@ import com.musheer360.swiftslate.ui.components.SlateItemCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
 import kotlinx.coroutines.launch
 
-/**
- * Screen for managing API keys scoped to the active provider.
- * Shows the provider name, an input field to add keys with validation,
- * and a list of stored keys with delete actions.
- *
- * @param keyManager Encrypted key storage manager.
- * @param providerManager User-defined provider manager.
- */
 @Composable
-fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
+fun KeysScreen(viewModel: SwiftSlateViewModel) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val activeProvider = remember { providerManager.getActiveProvider() }
+    val activeProvider by viewModel.activeProvider.collectAsState()
 
-    // No provider configured — show hint
     if (activeProvider == null) {
         Column(
             modifier = Modifier
@@ -72,20 +61,23 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
         return
     }
 
-    val providerId = activeProvider.id
-    var keys by remember { mutableStateOf(keyManager.getKeys(providerId)) }
+    val providerId = activeProvider!!.id
+    var keys by remember { mutableStateOf<List<String>>(emptyList()) }
     var keyToDelete by remember { mutableStateOf<String?>(null) }
     var newKey by remember { mutableStateOf("") }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
     var testSuccess by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val openAIClient = remember { OpenAICompatibleClient() }
 
     val validAddedMsg = stringResource(R.string.keys_valid_added)
     val alreadyAddedMsg = stringResource(R.string.keys_already_added)
     val validationFailedMsg = stringResource(R.string.keys_validation_failed)
     val keystoreErrorMsg = stringResource(R.string.keys_keystore_error)
+
+    LaunchedEffect(providerId) {
+        keys = viewModel.keyRepository.getKeys(providerId)
+    }
 
     Column(
         modifier = Modifier
@@ -95,16 +87,15 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
     ) {
         ScreenTitle(stringResource(R.string.keys_title))
 
-        // Provider label
         Text(
-            text = stringResource(R.string.keys_provider_label, activeProvider.name),
+            text = stringResource(R.string.keys_provider_label, activeProvider!!.name),
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        if (!keyManager.keystoreAvailable) {
+        if (!viewModel.keyRepository.keystoreAvailable) {
             SlateCard {
                 Text(
                     text = keystoreErrorMsg,
@@ -134,9 +125,9 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                             val trimmedKey = newKey.trim()
                             val result = KeyValidation.validate(
                                 key = trimmedKey,
-                                endpoint = activeProvider.endpoint,
-                                existingKeys = keyManager.getKeys(providerId),
-                                client = openAIClient,
+                                endpoint = activeProvider!!.endpoint,
+                                existingKeys = keys,
+                                client = viewModel.openAiClient,
                                 fallbackErrorMessage = validationFailedMsg
                             )
                             isTesting = false
@@ -150,16 +141,15 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                                     testSuccess = false
                                 }
                                 is KeyValidationResult.Valid -> {
-                                    if (!keyManager.addKey(providerId, trimmedKey)) {
+                                    if (!viewModel.keyRepository.addKey(providerId, trimmedKey)) {
                                         testResult = keystoreErrorMsg
                                         testSuccess = false
                                         return@launch
                                     }
-                                    keys = keyManager.getKeys(providerId)
+                                    keys = viewModel.keyRepository.getKeys(providerId)
                                     newKey = ""
                                     testResult = validAddedMsg
                                     testSuccess = true
-                                    // Clear clipboard to prevent API key leaking
                                     val clipboard = context.getSystemService(
                                         Context.CLIPBOARD_SERVICE
                                     ) as ClipboardManager
@@ -169,7 +159,7 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
                         }
                     }
                 },
-                enabled = newKey.isNotBlank() && !isTesting && keyManager.keystoreAvailable,
+                enabled = newKey.isNotBlank() && !isTesting && viewModel.keyRepository.keystoreAvailable,
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
@@ -235,11 +225,9 @@ fun KeysScreen(keyManager: KeyManager, providerManager: ProviderManager) {
             confirmButton = {
                 TextButton(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (keyManager.removeKey(providerId, keyValue)) {
-                        keys = keyManager.getKeys(providerId)
-                    } else {
-                        testResult = keystoreErrorMsg
-                        testSuccess = false
+                    scope.launch {
+                        viewModel.keyRepository.removeKey(providerId, keyValue)
+                        keys = viewModel.keyRepository.getKeys(providerId)
                     }
                     keyToDelete = null
                 }) {

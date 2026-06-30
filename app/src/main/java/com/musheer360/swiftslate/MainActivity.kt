@@ -23,13 +23,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.musheer360.swiftslate.service.KeepAliveService
-import com.musheer360.swiftslate.ui.commandsscreen.CommandsScreen
 import com.musheer360.swiftslate.ui.DashboardScreen
 import com.musheer360.swiftslate.ui.KeysScreen
+import com.musheer360.swiftslate.ui.commandsscreen.CommandsScreen
 import com.musheer360.swiftslate.ui.settingsscreen.SettingsScreen
 import com.musheer360.swiftslate.ui.theme.SwiftSlateTheme
+import dagger.hilt.android.AndroidEntryPoint
 
 enum class Tab(@StringRes val titleRes: Int, val icon: ImageVector) {
     Dashboard(R.string.dashboard_title, Icons.Default.Home),
@@ -38,22 +39,12 @@ enum class Tab(@StringRes val titleRes: Int, val icon: ImageVector) {
     Settings(R.string.settings_title, Icons.Default.Settings)
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    /**
-     * Sets up the Compose UI and ensures the keep-alive foreground service
-     * is running.
-     *
-     * Starting the service here (in addition to [SwiftSlateApp.onCreate])
-     * guarantees a foreground-activity context, which satisfies Android 12+
-     * FGS start restrictions on all OEMs including Xiaomi/HyperOS.
-     *
-     * @param savedInstanceState Saved instance state bundle.
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Guaranteed foreground context — most reliable FGS start point
         KeepAliveService.start(this)
 
         enableEdgeToEdge()
@@ -66,7 +57,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = viewModel()) {
+fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = hiltViewModel()) {
     val haptic = LocalHapticFeedback.current
     var selectedTab by rememberSaveable { mutableStateOf(Tab.Dashboard) }
 
@@ -107,10 +98,10 @@ fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = viewModel()) {
             Tab.entries.associateWith { tab ->
                 movableContentOf {
                     when (tab) {
-                        Tab.Dashboard -> DashboardScreen(vm.keyManager, vm.commandManager, vm.providerManager)
-                        Tab.Keys -> KeysScreen(vm.keyManager, vm.providerManager)
-                        Tab.Commands -> CommandsScreen(vm.commandManager)
-                        Tab.Settings -> SettingsScreen(vm.commandManager, vm.providerManager, vm.keyManager, vm.prefs)
+                        Tab.Dashboard -> DashboardScreen(viewModel = vm)
+                        Tab.Keys -> KeysScreen(viewModel = vm)
+                        Tab.Commands -> CommandsScreen(viewModel = vm)
+                        Tab.Settings -> SettingsScreen(viewModel = vm)
                     }
                 }
             }

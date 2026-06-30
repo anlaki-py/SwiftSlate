@@ -7,13 +7,13 @@ import android.os.Looper
 import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.widget.Toast
-import com.musheer360.swiftslate.api.OpenAICompatibleClient
-import com.musheer360.swiftslate.manager.CommandManager
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.manager.ProviderManager
+import com.musheer360.swiftslate.data.remote.OpenAiClient
+import com.musheer360.swiftslate.data.repository.CommandRepository
+import com.musheer360.swiftslate.data.repository.KeyRepository
+import com.musheer360.swiftslate.data.repository.ProviderRepository
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,22 +22,18 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
+import javax.inject.Inject
 
-/**
- * Accessibility service that detects command triggers typed in any text field,
- * dispatches them to the appropriate handler (AI, text-replacer, or undo),
- * and manages the overall processing lifecycle.
- *
- * Delegates heavy work to [AiCommandProcessor], [TextReplacer],
- * [OverlayToastManager], and [HapticHelper].
- */
+@AndroidEntryPoint
 class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
-    private lateinit var keyManager: KeyManager
-    private lateinit var commandManager: CommandManager
-    private lateinit var providerManager: ProviderManager
+    @Inject lateinit var commandRepository: CommandRepository
+    @Inject lateinit var keyRepository: KeyRepository
+    @Inject lateinit var providerRepository: ProviderRepository
+    @Inject lateinit var openAiClient: OpenAiClient
+
     private lateinit var textReplacer: TextReplacer
     private lateinit var toastManager: OverlayToastManager
     private lateinit var aiCommandProcessor: AiCommandProcessor
@@ -48,11 +44,10 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
     @Volatile private var processingStartedAt = 0L
     private val handler = Handler(Looper.getMainLooper())
     private var triggerLastChars = setOf<Char>()
-    private var cachedPrefix = CommandManager.DEFAULT_PREFIX
+    private var cachedPrefix = CommandConstants.DEFAULT_PREFIX
     private var cachedTranslatePrefix = ""
     @Volatile private var currentJob: Job? = null
     private var processingResetRunnable: Runnable? = null
-    // Intentionally single-level undo (toggle between current and previous text).
     @Volatile private var lastOriginalText: String? = null
     @Volatile private var lastUndoSourceId: String? = null
     private var lastTriggerRefresh = 0L
@@ -63,50 +58,41 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         const val PROCESSING_WATCHDOG_MS = 120_000L
     }
 
-    /** Unique identifier for a node: windowId + resource name (or hash). */
     private fun sourceId(source: AccessibilityNodeInfo): String =
         "${source.windowId}:${source.viewIdResourceName ?: source.hashCode()}"
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        keyManager = KeyManager(applicationContext)
-        commandManager = CommandManager(applicationContext)
-        providerManager = ProviderManager(applicationContext)
         textReplacer = TextReplacer(applicationContext, handler)
         toastManager = OverlayToastManager(applicationContext, handler)
         aiCommandProcessor = AiCommandProcessor(
-            applicationContext, providerManager, keyManager,
-            OpenAICompatibleClient(), textReplacer, toastManager,
+            applicationContext, providerRepository, keyRepository,
+            openAiClient, textReplacer, toastManager,
             serviceScope, handler
         )
         updateTriggers()
-
-        // Ensure the foreground keep-alive is running so the process
-        // has elevated priority even without the app being open
         KeepAliveService.start(applicationContext)
+        Timber.i("AssistantService connected")
     }
 
-    /**
-     * Refreshes cached trigger data from [CommandManager].
-     * Filters the translate entry to avoid false-positive matching on '<lang>'.
-     */
     private fun updateTriggers() {
-        cachedPrefix = commandManager.getTriggerPrefix()
-        cachedTranslatePrefix = commandManager.getTranslatePrefix()
-        triggerLastChars = commandManager.getCommands()
-            .filter { it.builtInKey != "translate" }
+        cachedPrefix = commandRepository.getTriggerPrefix()
+        cachedTranslatePrefix = commandRepository.getTranslatePrefix()
+        triggerLastChars = kotlinx.coroutines.runBlocking {
+            commandRepository.getCommands()
+        }.filter { it.builtInKey != "translate" }
             .mapNotNull { it.trigger.lastOrNull() }.toSet()
         lastTriggerRefresh = System.currentTimeMillis()
     }
 
-    // -- Watchdog & processing-state helpers --
-
-    /** Arms a watchdog that force-cancels after [PROCESSING_WATCHDOG_MS]. */
     private fun startWatchdog() {
         watchdogRunnable?.let { handler.removeCallbacks(it) }
         val r = Runnable {
             if (isProcessing.get()) {
-                currentJob?.cancel(); isProcessing.set(false); processingStartedAt = 0L
+                currentJob?.cancel()
+                isProcessing.set(false)
+                processingStartedAt = 0L
+                Timber.w("Watchdog triggered — processing cancelled")
             }
         }
         watchdogRunnable = r
@@ -114,14 +100,15 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
     }
 
     private fun cancelWatchdog() {
-        watchdogRunnable?.let { handler.removeCallbacks(it) }; watchdogRunnable = null
+        watchdogRunnable?.let { handler.removeCallbacks(it) }
+        watchdogRunnable = null
     }
 
     private fun cancelPendingProcessingReset() {
-        processingResetRunnable?.let { handler.removeCallbacks(it) }; processingResetRunnable = null
+        processingResetRunnable?.let { handler.removeCallbacks(it) }
+        processingResetRunnable = null
     }
 
-    /** Delays clearing [isProcessing] to debounce IME re-commit events. */
     private fun scheduleProcessingReset() {
         cancelPendingProcessingReset()
         val r = Runnable { isProcessing.set(false) }
@@ -129,17 +116,15 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         if (!handler.postDelayed(r, 500)) isProcessing.set(false)
     }
 
-    /** Common setup before any command handler: acquire lock, arm watchdog, cancel prior job. */
     private fun beginProcessing(): Job? {
         if (!isProcessing.compareAndSet(false, true)) return null
         processingStartedAt = System.currentTimeMillis()
-        startWatchdog(); cancelPendingProcessingReset()
+        startWatchdog()
+        cancelPendingProcessingReset()
         val oldJob = currentJob
         oldJob?.cancel()
         return oldJob ?: Job().apply { complete() }
     }
-
-    // -- Event handling --
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
@@ -150,9 +135,11 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         val text = source.text?.toString() ?: run { source.recycle(); return }
 
         if (text.isEmpty()) {
-            textReplacer.handleEmptyField(source); source.recycle(); return
+            textReplacer.handleEmptyField(source)
+            source.recycle()
+            return
         }
-        // Debounce: skip events matching our most recent replacement
+
         val replaced = textReplacer.lastReplacedText
         if (replaced != null && text == replaced &&
             System.currentTimeMillis() - textReplacer.lastReplacedAt < 1000
@@ -167,33 +154,25 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             }
         }
 
-        val command = commandManager.findCommand(text) ?: run { source.recycle(); return }
+        val command = kotlinx.coroutines.runBlocking {
+            commandRepository.findCommand(text)
+        } ?: run { source.recycle(); return }
+
         val precedingText = text.substring(0, text.length - command.trigger.length)
         val cleanText = precedingText.trim()
 
+        val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
+
         when {
-            command.builtInKey == "undo" -> {
-                val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
-                handleUndo(source, cleanText, oldJob)
-            }
-            command.type == CommandType.TEXT_REPLACER -> {
-                val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
-                handleTextReplacer(source, precedingText, command, oldJob)
-            }
-            command.type == CommandType.AI -> {
-                val oldJob = beginProcessing() ?: run { try { source.recycle() } catch (_: Exception) {}; return }
-                handleAiCommand(source, cleanText, command, oldJob)
-            }
+            command.builtInKey == "undo" -> handleUndo(source, cleanText, oldJob)
+            command.type == CommandType.TEXT_REPLACER -> handleTextReplacer(source, precedingText, command, oldJob)
+            command.type == CommandType.AI -> handleAiCommand(source, cleanText, command, oldJob)
         }
     }
 
-    // -- Command handlers --
-
-    /** Replaces trigger text with the command's literal prompt. */
     private fun handleTextReplacer(source: AccessibilityNodeInfo, precedingText: String, command: Command, oldJob: Job) {
         currentJob = serviceScope.launch {
             oldJob.join()
-            val thisJob = coroutineContext[Job]
             try {
                 withContext(Dispatchers.Main) {
                     lastOriginalText = precedingText
@@ -205,21 +184,27 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             } catch (_: Exception) { toastManager.showToast("Could not replace text")
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
-                    if (currentJob === thisJob) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
+                    if (currentJob === coroutineContext[Job]) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
                     try { source.recycle() } catch (_: Exception) {}
                 }
             }
         }
     }
 
-    /** Validates preconditions then delegates to [AiCommandProcessor]. */
     private fun handleAiCommand(source: AccessibilityNodeInfo, cleanText: String, command: Command, oldJob: Job) {
-        if (!keyManager.keystoreAvailable) {
+        if (!keyRepository.keystoreAvailable) {
             handler.post {
-                Toast.makeText(applicationContext, "Secure key storage unavailable. Please reinstall the app.", Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(
+                    applicationContext,
+                    getString(com.musheer360.swiftslate.R.string.keys_keystore_error),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
-            cancelWatchdog(); processingStartedAt = 0L; isProcessing.set(false)
-            try { source.recycle() } catch (_: Exception) {}; return
+            cancelWatchdog()
+            processingStartedAt = 0L
+            isProcessing.set(false)
+            try { source.recycle() } catch (_: Exception) {}
+            return
         }
 
         val temperature = applicationContext
@@ -231,13 +216,12 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         )
     }
 
-    /** Swaps current text with the previously captured original (single-level toggle). */
     private fun handleUndo(source: AccessibilityNodeInfo, currentText: String, oldJob: Job) {
         currentJob = serviceScope.launch {
             oldJob.join()
-            val thisJob = coroutineContext[Job]
             try {
-                val prev = lastOriginalText; val undoId = lastUndoSourceId
+                val prev = lastOriginalText
+                val undoId = lastUndoSourceId
                 if (prev == null || undoId != sourceId(source)) {
                     HapticHelper.performHapticFeedback(applicationContext, handler, HapticFeedbackConstants.REJECT)
                     toastManager.showToast("Nothing to undo")
@@ -250,36 +234,40 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             } catch (_: Exception) { toastManager.showToast("Could not undo")
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
-                    if (currentJob === thisJob) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
+                    if (currentJob === coroutineContext[Job]) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
                     try { source.recycle() } catch (_: Exception) {}
                 }
             }
         }
     }
 
-    // -- ProcessingCallbacks --
-
     override fun onProcessingComplete(job: Job) {
         if (currentJob === job) { cancelWatchdog(); processingStartedAt = 0L; scheduleProcessingReset() }
     }
 
     override fun onOriginalTextCaptured(text: String, sourceId: String) {
-        lastOriginalText = text; lastUndoSourceId = sourceId
+        lastOriginalText = text
+        lastUndoSourceId = sourceId
     }
 
-    // -- Lifecycle --
-
     override fun onInterrupt() {
-        isProcessing.set(false); processingStartedAt = 0L
-        currentJob?.cancel(); serviceJob.cancelChildren()
+        isProcessing.set(false)
+        processingStartedAt = 0L
+        currentJob?.cancel()
+        serviceJob.cancelChildren()
         handler.removeCallbacksAndMessages(null)
-        textReplacer.clearState(); toastManager.dismissOverlayToast()
+        textReplacer.clearState()
+        toastManager.dismissOverlayToast()
+        Timber.i("AssistantService interrupted")
     }
 
     override fun onDestroy() {
-        super.onDestroy(); isProcessing.set(false)
+        super.onDestroy()
+        isProcessing.set(false)
         handler.removeCallbacksAndMessages(null)
-        textReplacer.clearState(); toastManager.dismissOverlayToast()
+        textReplacer.clearState()
+        toastManager.dismissOverlayToast()
         serviceScope.cancel()
+        Timber.i("AssistantService destroyed")
     }
 }

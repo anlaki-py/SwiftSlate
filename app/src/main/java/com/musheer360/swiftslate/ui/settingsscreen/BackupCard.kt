@@ -14,21 +14,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.manager.CommandManager
+import com.musheer360.swiftslate.data.repository.CommandRepository
 import com.musheer360.swiftslate.ui.components.SlateCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Backup/restore card — export and import custom commands as JSON files.
- * Includes file picker launchers, success/error feedback, and an import
- * confirmation dialog.
- *
- * @param commandManager Used to export and import command data.
- */
 @Composable
-internal fun BackupCard(commandManager: CommandManager) {
+internal fun BackupCard(commandRepository: CommandRepository) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -50,7 +43,7 @@ internal fun BackupCard(commandManager: CommandManager) {
                 try {
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(it)?.use { os ->
-                            os.write(commandManager.exportCommands().toByteArray())
+                            os.write(commandRepository.exportCommands().toByteArray())
                         }
                     }
                     backupMessage = exportSuccessMsg
@@ -75,7 +68,7 @@ internal fun BackupCard(commandManager: CommandManager) {
                             if (text.length > 1_000_000) null else text
                         } ?: ""
                     }
-                    if (commandManager.importCommands(json)) {
+                    if (commandRepository.importCommands(json)) {
                         backupMessage = importSuccessMsg
                         backupSuccess = true
                     } else {
@@ -135,7 +128,6 @@ internal fun BackupCard(commandManager: CommandManager) {
         }
     }
 
-    // Import confirmation dialog
     if (showImportConfirm) {
         AlertDialog(
             onDismissRequest = { showImportConfirm = false },

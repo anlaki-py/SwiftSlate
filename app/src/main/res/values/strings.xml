@@ -52,6 +52,7 @@
     <string name="commands_reset_command">Reset to Default</string>
     <string name="commands_reset_confirm_title">Reset this command?</string>
     <string name="commands_reset_confirm_message">This will restore the original built-in command.</string>
+    <string name="commands_custom_title">Custom</string>
     <string name="commands_translate_hint">Append :&lt;lang&gt; when typing (e.g. %1$s:fr)</string>
     <string name="commands_deleted_section">Deleted</string>
     <string name="commands_restore_command">Restore</string>
