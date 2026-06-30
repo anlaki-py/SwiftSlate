@@ -45,8 +45,11 @@ android {
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.findByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
-        beta {
-            initWith(release)
+        create("beta") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.findByName("debug")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             applicationIdSuffix = ".beta"
             versionNameSuffix = "-beta"
         }
