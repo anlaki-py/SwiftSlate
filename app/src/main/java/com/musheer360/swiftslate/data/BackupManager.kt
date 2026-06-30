@@ -217,6 +217,7 @@ class BackupManager(context: Context) {
             val trigger = obj.optString("trigger", "")
             val prompt = obj.optString("prompt", "")
             if (trigger.isBlank()) return BackupResult.Error("invalid_trigger")
+            if (trigger.length <= prefix.length) return BackupResult.Error("invalid_trigger")
             if (prompt.isBlank()) return BackupResult.Error("invalid_prompt")
             if (trigger.length > MAX_TRIGGER_LENGTH) return BackupResult.Error("invalid_trigger")
             if (prompt.length > MAX_PROMPT_LENGTH) return BackupResult.Error("invalid_prompt")
