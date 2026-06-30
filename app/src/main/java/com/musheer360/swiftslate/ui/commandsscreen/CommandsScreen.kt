@@ -169,7 +169,8 @@ fun CommandsScreen(vm: SwiftSlateViewModel) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        val isEditingOverridden = editingBuiltInKey != null && vm.isBuiltInOverridden(editingBuiltInKey)
+        val editingKey = editingBuiltInKey
+        val isEditingOverridden = editingKey != null && vm.isBuiltInOverridden(editingKey)
 
         CommandFormCard(
             isFormExpanded = isFormExpanded,

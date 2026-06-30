@@ -63,9 +63,10 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
     // Sync local provider state from ViewModel
     LaunchedEffect(state.activeProviderId, state.providers) {
         providers = state.providers
-        activeProvider = if (state.activeProviderId != null) {
+        val currentActiveProviderId = state.activeProviderId
+        activeProvider = if (currentActiveProviderId != null) {
             Provider(
-                id = state.activeProviderId,
+                id = currentActiveProviderId,
                 name = state.activeProviderName ?: "",
                 endpoint = state.activeProviderEndpoint,
                 selectedModel = state.activeProviderModel
