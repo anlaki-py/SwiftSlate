@@ -7,6 +7,7 @@ import com.musheer360.swiftslate.data.local.AppDatabase
 import com.musheer360.swiftslate.data.local.KeyEntity
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import javax.crypto.Cipher
@@ -24,7 +25,7 @@ class KeyRepositoryImpl @Inject constructor(
     private val keyDao = db.keyDao()
 
     private val rateLimitedKeys = ConcurrentHashMap<String, Long>()
-    private val invalidKeys = ConcurrentHashMap.newKeySet<String>()
+    private val invalidKeys = Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
     private val roundRobinIndex = AtomicInteger(0)
 
     @Volatile
