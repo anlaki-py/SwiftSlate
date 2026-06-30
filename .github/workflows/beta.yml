@@ -18,7 +18,7 @@ jobs:
           java-version: 17
 
       - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
 
       - name: Compute version
         id: version
@@ -30,9 +30,19 @@ jobs:
 
       - name: Run lint
         run: ./gradlew lint -PversionCode=1 -PversionName=ci
+        env:
+          KEYSTORE_FILE: app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Run unit tests
         run: ./gradlew test -PversionCode=1 -PversionName=ci
+        env:
+          KEYSTORE_FILE: app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Build beta APK
         run: >
@@ -40,7 +50,7 @@ jobs:
           -PversionCode=${{ steps.version.outputs.versionCode }}
           -PversionName=${{ steps.version.outputs.versionName }}
         env:
-          KEYSTORE_FILE: keystore.jks
+          KEYSTORE_FILE: app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
