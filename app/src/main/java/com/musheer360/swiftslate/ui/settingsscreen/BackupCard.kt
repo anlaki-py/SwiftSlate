@@ -21,11 +21,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Backup/restore card — export and import app state as JSON files.
- * Includes file picker launchers, specific success/error feedback,
- * and an import confirmation dialog.
- */
 @Composable
 internal fun BackupCard(vm: SwiftSlateViewModel) {
     val context = LocalContext.current
@@ -38,6 +33,17 @@ internal fun BackupCard(vm: SwiftSlateViewModel) {
 
     val exportSuccessMsg = stringResource(R.string.backup_export_success)
     val exportErrorMsg = stringResource(R.string.backup_export_error)
+    val importSuccessMsg = stringResource(R.string.backup_import_success)
+    val importErrorMsg = stringResource(R.string.backup_import_error)
+    val importErrorTooLarge = stringResource(R.string.backup_import_error_too_large)
+    val errorMsgInvalidFormat = stringResource(R.string.backup_import_error_invalid_format)
+    val errorMsgVersion = stringResource(R.string.backup_import_error_version)
+    val errorMsgChecksum = stringResource(R.string.backup_import_error_checksum)
+    val errorMsgTooMany = stringResource(R.string.backup_import_error_too_many)
+    val errorMsgTrigger = stringResource(R.string.backup_import_error_trigger)
+    val errorMsgPrompt = stringResource(R.string.backup_import_error_prompt)
+    val errorMsgType = stringResource(R.string.backup_import_error_type)
+    val errorMsgParse = stringResource(R.string.backup_import_error_parse)
 
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -52,22 +58,32 @@ internal fun BackupCard(vm: SwiftSlateViewModel) {
                         } ?: ""
                     }
                     if (json == null) {
-                        backupMessage = stringResource(R.string.backup_import_error_too_large)
+                        backupMessage = importErrorTooLarge
                         backupSuccess = false
                         return@launch
                     }
                     when (val result = vm.importCommands(json)) {
                         is BackupResult.Success -> {
-                            backupMessage = stringResource(R.string.backup_import_success)
+                            backupMessage = importSuccessMsg
                             backupSuccess = true
                         }
                         is BackupResult.Error -> {
-                            backupMessage = importErrorMessage(result.messageKey)
+                            backupMessage = when (result.messageKey) {
+                                "invalid_format" -> errorMsgInvalidFormat
+                                "version_unsupported" -> errorMsgVersion
+                                "checksum_mismatch" -> errorMsgChecksum
+                                "too_many_commands" -> errorMsgTooMany
+                                "invalid_trigger" -> errorMsgTrigger
+                                "invalid_prompt" -> errorMsgPrompt
+                                "invalid_type" -> errorMsgType
+                                "parse_error" -> errorMsgParse
+                                else -> importErrorMsg
+                            }
                             backupSuccess = false
                         }
                     }
                 } catch (_: Exception) {
-                    backupMessage = stringResource(R.string.backup_import_error)
+                    backupMessage = importErrorMsg
                     backupSuccess = false
                 }
             }
@@ -157,20 +173,5 @@ internal fun BackupCard(vm: SwiftSlateViewModel) {
                 }
             }
         )
-    }
-}
-
-@Composable
-private fun importErrorMessage(messageKey: String): String {
-    return when (messageKey) {
-        "invalid_format" -> stringResource(R.string.backup_import_error_invalid_format)
-        "version_unsupported" -> stringResource(R.string.backup_import_error_version)
-        "checksum_mismatch" -> stringResource(R.string.backup_import_error_checksum)
-        "too_many_commands" -> stringResource(R.string.backup_import_error_too_many)
-        "invalid_trigger" -> stringResource(R.string.backup_import_error_trigger)
-        "invalid_prompt" -> stringResource(R.string.backup_import_error_prompt)
-        "invalid_type" -> stringResource(R.string.backup_import_error_type)
-        "parse_error" -> stringResource(R.string.backup_import_error_parse)
-        else -> stringResource(R.string.backup_import_error)
     }
 }

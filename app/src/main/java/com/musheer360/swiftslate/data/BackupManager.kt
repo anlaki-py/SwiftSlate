@@ -102,7 +102,7 @@ class BackupManager(context: Context) {
         if (validationResult != null) return validationResult
 
         commandPrefs.edit().putString("custom_commands", migrated.toString()).apply()
-        BackupResult.Success
+        return BackupResult.Success
     }
 
     /**
@@ -141,7 +141,7 @@ class BackupManager(context: Context) {
 
         commandPrefs.edit().putString("custom_commands", migrated.toString()).apply()
 
-        BackupResult.Success
+        return BackupResult.Success
     }
 
     private fun getCurrentPrefix(): String {
