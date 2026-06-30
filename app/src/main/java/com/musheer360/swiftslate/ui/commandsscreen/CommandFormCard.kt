@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,7 @@ fun CommandFormCard(
     onDismiss: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     var trigger by remember { mutableStateOf(command?.trigger ?: prefix) }
     var prompt by remember { mutableStateOf(command?.prompt ?: "") }
     var description by remember { mutableStateOf(command?.description ?: "") }
@@ -109,10 +111,10 @@ fun CommandFormCard(
                 when (validation) {
                     is CommandValidationResult.Error -> {
                         errorMessage = when (validation.messageKey) {
-                            "prefix" -> stringResource(R.string.commands_error_prefix, prefix)
-                            "empty_trigger" -> stringResource(R.string.commands_error_empty_trigger)
-                            "duplicate" -> stringResource(R.string.commands_error_duplicate)
-                            "conflict" -> stringResource(R.string.commands_error_conflict, validation.conflictTrigger ?: "")
+                            "prefix" -> context.getString(R.string.commands_error_prefix, prefix)
+                            "empty_trigger" -> context.getString(R.string.commands_error_empty_trigger)
+                            "duplicate" -> context.getString(R.string.commands_error_duplicate)
+                            "conflict" -> context.getString(R.string.commands_error_conflict, validation.conflictTrigger ?: "")
                             else -> validation.messageKey
                         }
                     }
