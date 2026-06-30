@@ -28,6 +28,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Run lint
+        run: ./gradlew lint -PversionCode=1 -PversionName=ci
+
+      - name: Run unit tests
+        run: ./gradlew test -PversionCode=1 -PversionName=ci
+
       - name: Build beta APK
         run: >
           ./gradlew assembleBeta
