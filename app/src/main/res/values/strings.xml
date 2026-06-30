@@ -92,7 +92,7 @@
     <string name="settings_timeout_desc" translatable="false">Timeout (seconds)</string>
 
     <!-- Backup -->
-    <string name="backup_title">Backup & Restore</string>
+    <string name="backup_title">Backup and Restore</string>
     <string name="backup_desc">Export or import your commands, overrides, and settings as a JSON file.</string>
     <string name="backup_export">Export</string>
     <string name="backup_import">Import</string>
