@@ -4,18 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveNavigationSuiteApi
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -56,36 +55,71 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3AdaptiveNavigationSuiteApi::class)
 @Composable
 fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = hiltViewModel()) {
     val haptic = LocalHapticFeedback.current
     var selectedTab by rememberSaveable { mutableStateOf(Tab.Dashboard) }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            Tab.entries.forEach { tab ->
-                NavigationSuiteItem(
-                    icon = { Icon(tab.icon, contentDescription = stringResource(tab.titleRes)) },
-                    label = { Text(stringResource(tab.titleRes)) },
-                    selected = selectedTab == tab,
-                    onClick = {
-                        if (selectedTab != tab) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            selectedTab = tab
-                        }
-                    }
-                )
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp
+            ) {
+                Tab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        icon = {
+                            Icon(
+                                tab.icon,
+                                contentDescription = stringResource(tab.titleRes)
+                            )
+                        },
+                        label = { Text(stringResource(tab.titleRes)) },
+                        selected = selectedTab == tab,
+                        onClick = {
+                            if (selectedTab != tab) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                selectedTab = tab
+                            }
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
             }
         }
-    ) {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            when (selectedTab) {
-                Tab.Dashboard -> DashboardScreen(viewModel = vm)
-                Tab.Keys -> KeysScreen(viewModel = vm)
-                Tab.Commands -> CommandsScreen(viewModel = vm)
-                Tab.Settings -> SettingsScreen(viewModel = vm)
+    ) { innerPadding ->
+        val screens = remember {
+            Tab.entries.associateWith { tab ->
+                movableContentOf {
+                    when (tab) {
+                        Tab.Dashboard -> DashboardScreen(viewModel = vm)
+                        Tab.Keys -> KeysScreen(viewModel = vm)
+                        Tab.Commands -> CommandsScreen(viewModel = vm)
+                        Tab.Settings -> SettingsScreen(viewModel = vm)
+                    }
+                }
             }
+        }
+
+        AnimatedContent(
+            targetState = selectedTab,
+            modifier = Modifier.padding(innerPadding),
+            transitionSpec = {
+                val direction = if (targetState.ordinal > initialState.ordinal)
+                    AnimatedContentTransitionScope.SlideDirection.Left
+                else
+                    AnimatedContentTransitionScope.SlideDirection.Right
+                slideIntoContainer(direction, tween(250, easing = FastOutSlowInEasing)) togetherWith
+                    slideOutOfContainer(direction, tween(250, easing = FastOutSlowInEasing))
+            },
+            label = "tab_transition"
+        ) { tab ->
+            screens[tab]?.invoke()
         }
     }
 }
