@@ -92,15 +92,24 @@
     <string name="settings_timeout_desc" translatable="false">Timeout (seconds)</string>
 
     <!-- Backup -->
-    <string name="backup_title">Backup &amp; Restore</string>
-    <string name="backup_desc">Export or import your custom commands as a JSON file.</string>
+    <string name="backup_title">Backup & Restore</string>
+    <string name="backup_desc">Export or import your commands, overrides, and settings as a JSON file.</string>
     <string name="backup_export">Export</string>
     <string name="backup_import">Import</string>
-    <string name="backup_export_success">Commands exported successfully</string>
+    <string name="backup_export_success">Backup exported successfully</string>
     <string name="backup_export_error">Export failed</string>
-    <string name="backup_import_success">Commands imported successfully</string>
-    <string name="backup_import_error">Invalid backup file</string>
-    <string name="backup_import_confirm">This will replace all your existing custom commands. Continue?</string>
+    <string name="backup_import_success">Backup imported successfully</string>
+    <string name="backup_import_error">Import failed</string>
+    <string name="backup_import_error_invalid_format">Not a valid SwiftSlate backup file</string>
+    <string name="backup_import_error_version">Backup format version not supported</string>
+    <string name="backup_import_error_checksum">Backup file is corrupted (checksum mismatch)</string>
+    <string name="backup_import_error_too_many">Too many commands in backup (max 100)</string>
+    <string name="backup_import_error_trigger">Invalid trigger found in backup</string>
+    <string name="backup_import_error_prompt">Invalid prompt found in backup</string>
+    <string name="backup_import_error_type">Invalid command type found in backup</string>
+    <string name="backup_import_error_parse">Could not parse backup file</string>
+    <string name="backup_import_error_too_large">Backup file is too large (max 1 MB)</string>
+    <string name="backup_import_confirm">This will replace all your existing commands and overrides. Continue?</string>
     <string name="backup_import_cancel">Cancel</string>
     <string name="settings_check_updates">Check for updates</string>
     <string name="settings_made_by">Made by</string>

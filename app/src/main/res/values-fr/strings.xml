@@ -90,15 +90,24 @@
     <string name="settings_temperature_desc">Créativité de la réponse IA</string>
 
     <!-- Backup -->
-    <string name="backup_title">Sauvegarde &amp; Restauration</string>
-    <string name="backup_desc">Exportez ou importez vos commandes personnalisées sous forme de fichier JSON.</string>
+    <string name="backup_title">Sauvegarde & Restauration</string>
+    <string name="backup_desc">Exportez ou importez vos commandes, remplacements et paramètres sous forme de fichier JSON.</string>
     <string name="backup_export">Exporter</string>
     <string name="backup_import">Importer</string>
-    <string name="backup_export_success">Commandes exportées avec succès</string>
-    <string name="backup_import_success">Commandes importées avec succès</string>
-    <string name="backup_import_error">Fichier de sauvegarde invalide</string>
+    <string name="backup_export_success">Sauvegarde exportée avec succès</string>
+    <string name="backup_import_success">Sauvegarde importée avec succès</string>
+    <string name="backup_import_error">Échec de l\'importation</string>
+    <string name="backup_import_error_invalid_format">Fichier de sauvegarde SwiftSlate invalide</string>
+    <string name="backup_import_error_version">Version du format de sauvegarde non prise en charge</string>
+    <string name="backup_import_error_checksum">Fichier de sauvegarde corrompu (somme de contrôle incorrecte)</string>
+    <string name="backup_import_error_too_many">Trop de commandes dans la sauvegarde (max 100)</string>
+    <string name="backup_import_error_trigger">Déclencheur invalide trouvé dans la sauvegarde</string>
+    <string name="backup_import_error_prompt">Instruction invalide trouvée dans la sauvegarde</string>
+    <string name="backup_import_error_type">Type de commande invalide trouvé dans la sauvegarde</string>
+    <string name="backup_import_error_parse">Impossible d\'analyser le fichier de sauvegarde</string>
+    <string name="backup_import_error_too_large">Fichier de sauvegarde trop volumineux (max 1 Mo)</string>
     <string name="keys_keystore_error">Le stockage sécurisé des clés n\'est pas disponible sur cet appareil. Les clés ne peuvent pas être enregistrées.</string>
-    <string name="backup_import_confirm">Cela remplacera toutes vos commandes personnalisées existantes. Continuer ?</string>
+    <string name="backup_import_confirm">Cela remplacera toutes vos commandes et remplacements existants. Continuer ?</string>
     <string name="backup_import_cancel">Annuler</string>
     <string name="settings_check_updates">Vérifier les mises à jour</string>
     <string name="settings_made_by">Créé par</string>

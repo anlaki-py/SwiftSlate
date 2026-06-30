@@ -90,15 +90,24 @@
     <string name="settings_temperature_desc">Creatividad de la respuesta de IA</string>
 
     <!-- Backup -->
-    <string name="backup_title">Copia de seguridad &amp; Restauración</string>
-    <string name="backup_desc">Exporta o importa tus comandos personalizados como archivo JSON.</string>
+    <string name="backup_title">Copia de seguridad & Restauración</string>
+    <string name="backup_desc">Exporta o importa tus comandos, sobreescribir y ajustes como archivo JSON.</string>
     <string name="backup_export">Exportar</string>
     <string name="backup_import">Importar</string>
-    <string name="backup_export_success">Comandos exportados correctamente</string>
-    <string name="backup_import_success">Comandos importados correctamente</string>
-    <string name="backup_import_error">Archivo de copia de seguridad no válido</string>
+    <string name="backup_export_success">Copia de seguridad exportada correctamente</string>
+    <string name="backup_import_success">Copia de seguridad importada correctamente</string>
+    <string name="backup_import_error">Error al importar</string>
+    <string name="backup_import_error_invalid_format">No es un archivo de copia de seguridad válido de SwiftSlate</string>
+    <string name="backup_import_error_version">Versión de formato de copia de seguridad no compatible</string>
+    <string name="backup_import_error_checksum">El archivo de copia de seguridad está corrupto (checksum no coincide)</string>
+    <string name="backup_import_error_too_many">Demasiados comandos en la copia de seguridad (máx. 100)</string>
+    <string name="backup_import_error_trigger">Activador no válido encontrado en la copia de seguridad</string>
+    <string name="backup_import_error_prompt">Instrucción no válida encontrada en la copia de seguridad</string>
+    <string name="backup_import_error_type">Tipo de comando no válido encontrado en la copia de seguridad</string>
+    <string name="backup_import_error_parse">No se pudo analizar el archivo de copia de seguridad</string>
+    <string name="backup_import_error_too_large">El archivo de copia de seguridad es demasiado grande (máx. 1 MB)</string>
     <string name="keys_keystore_error">El almacenamiento seguro de claves no está disponible en este dispositivo. No se pueden guardar las claves.</string>
-    <string name="backup_import_confirm">Esto reemplazará todos tus comandos personalizados existentes. ¿Continuar?</string>
+    <string name="backup_import_confirm">Esto reemplazará todos tus comandos y sobreescribir existentes. ¿Continuar?</string>
     <string name="backup_import_cancel">Cancelar</string>
     <string name="settings_check_updates">Buscar actualizaciones</string>
     <string name="settings_made_by">Hecho por</string>

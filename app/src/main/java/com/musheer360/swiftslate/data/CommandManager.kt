@@ -258,38 +258,30 @@ class CommandManager(context: Context) {
         cachedCommands = null
     }
 
-    /** @return JSON string of all custom commands for backup. */
+    private val backupManager = BackupManager(context)
+
+    /**
+     * Exports the full app state as a structured JSON backup (v2).
+     * Includes custom commands, built-in overrides/deletions, and prefix.
+     */
     @Synchronized fun exportCommands(): String {
-        return prefs.getString("custom_commands", "[]") ?: "[]"
+        return backupManager.exportBackup()
     }
 
     /**
-     * Imports custom commands from a JSON string, replacing all existing custom commands.
+     * Imports app state from a JSON backup string.
+     * Handles both v1 (raw custom commands array) and v2 (structured backup) formats.
+     * Migrates triggers to the current prefix if the backup used a different one.
      *
-     * @param json The JSON array string to import.
-     * @return True if the import was valid and applied.
+     * @param json The JSON string to import.
+     * @return [BackupResult.Success] or [BackupResult.Error] with a specific reason.
      */
-    @Synchronized fun importCommands(json: String): Boolean {
-        return try {
-            val arr = JSONArray(json)
-            if (arr.length() > 100) return false
-            val prefix = getTriggerPrefix()
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                val trigger = obj.optString("trigger", "")
-                val prompt = obj.optString("prompt", "")
-                if (trigger.isBlank() || prompt.isBlank()) return false
-                if (trigger.length > 50 || prompt.length > 5000) return false
-                if (!trigger.startsWith(prefix)) return false
-                val type = obj.optString("type", CommandType.AI.name)
-                if (type != CommandType.AI.name && type != CommandType.TEXT_REPLACER.name) return false
-            }
-            prefs.edit().putString("custom_commands", arr.toString()).apply()
+    @Synchronized fun importCommands(json: String): BackupResult {
+        val result = backupManager.importBackup(json)
+        if (result is BackupResult.Success) {
             cachedCommands = null
-            true
-        } catch (_: Exception) {
-            false
         }
+        return result
     }
 
     /**

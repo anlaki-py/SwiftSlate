@@ -9,6 +9,7 @@ import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.domain.CommandValidation
 import com.musheer360.swiftslate.domain.CommandValidationResult
 import com.musheer360.swiftslate.domain.KeyValidation
+import com.musheer360.swiftslate.data.BackupResult
 import com.musheer360.swiftslate.data.CommandManager
 import com.musheer360.swiftslate.data.KeyManager
 import com.musheer360.swiftslate.data.ProviderManager
@@ -281,9 +282,9 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
 
     fun exportCommands(): String = commandManager.exportCommands()
 
-    fun importCommands(json: String): Boolean {
+    fun importCommands(json: String): BackupResult {
         val result = commandManager.importCommands(json)
-        if (result) refreshCommands()
+        if (result is BackupResult.Success) refreshCommands()
         return result
     }
 }

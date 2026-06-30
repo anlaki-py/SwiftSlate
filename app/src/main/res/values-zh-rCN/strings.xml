@@ -90,15 +90,24 @@
     <string name="settings_temperature_desc">AI 回复的创造性</string>
 
     <!-- Backup -->
-    <string name="backup_title">备份 &amp; 恢复</string>
-    <string name="backup_desc">将自定义命令导出或导入为 JSON 文件。</string>
+    <string name="backup_title">备份 & 恢复</string>
+    <string name="backup_desc">将命令、覆盖和设置导出或导入为 JSON 文件。</string>
     <string name="backup_export">导出</string>
     <string name="backup_import">导入</string>
-    <string name="backup_export_success">命令导出成功</string>
-    <string name="backup_import_success">命令导入成功</string>
-    <string name="backup_import_error">无效的备份文件</string>
+    <string name="backup_export_success">备份导出成功</string>
+    <string name="backup_import_success">备份导入成功</string>
+    <string name="backup_import_error">导入失败</string>
+    <string name="backup_import_error_invalid_format">不是有效的 SwiftSlate 备份文件</string>
+    <string name="backup_import_error_version">不支持的备份格式版本</string>
+    <string name="backup_import_error_checksum">备份文件已损坏（校验和不匹配）</string>
+    <string name="backup_import_error_too_many">备份中命令过多（最多100个）</string>
+    <string name="backup_import_error_trigger">备份中发现无效触发词</string>
+    <string name="backup_import_error_prompt">备份中发现无效提示词</string>
+    <string name="backup_import_error_type">备份中发现无效命令类型</string>
+    <string name="backup_import_error_parse">无法解析备份文件</string>
+    <string name="backup_import_error_too_large">备份文件过大（最大1MB）</string>
     <string name="keys_keystore_error">此设备不支持安全密钥存储，无法保存密钥。</string>
-    <string name="backup_import_confirm">这将替换所有现有的自定义命令。是否继续？</string>
+    <string name="backup_import_confirm">这将替换所有现有的命令和覆盖。是否继续？</string>
     <string name="backup_import_cancel">取消</string>
     <string name="settings_check_updates">检查更新</string>
     <string name="settings_made_by">制作者</string>

@@ -90,15 +90,24 @@
     <string name="settings_temperature_desc">Criatividade da resposta da IA</string>
 
     <!-- Backup -->
-    <string name="backup_title">Backup &amp; Restauração</string>
-    <string name="backup_desc">Exporte ou importe seus comandos personalizados como arquivo JSON.</string>
+    <string name="backup_title">Backup & Restauração</string>
+    <string name="backup_desc">Exporte ou importe seus comandos, substituições e configurações como arquivo JSON.</string>
     <string name="backup_export">Exportar</string>
     <string name="backup_import">Importar</string>
-    <string name="backup_export_success">Comandos exportados com sucesso</string>
-    <string name="backup_import_success">Comandos importados com sucesso</string>
-    <string name="backup_import_error">Arquivo de backup inválido</string>
+    <string name="backup_export_success">Backup exportado com sucesso</string>
+    <string name="backup_import_success">Backup importado com sucesso</string>
+    <string name="backup_import_error">Falha na importação</string>
+    <string name="backup_import_error_invalid_format">Arquivo de backup do SwiftSlate inválido</string>
+    <string name="backup_import_error_version">Versão do formato de backup não suportada</string>
+    <string name="backup_import_error_checksum">Arquivo de backup corrompido (checksum inválido)</string>
+    <string name="backup_import_error_too_many">Muitos comandos no backup (máx. 100)</string>
+    <string name="backup_import_error_trigger">Gatilho inválido encontrado no backup</string>
+    <string name="backup_import_error_prompt">Instrução inválida encontrada no backup</string>
+    <string name="backup_import_error_type">Tipo de comando inválido encontrado no backup</string>
+    <string name="backup_import_error_parse">Não foi possível analisar o arquivo de backup</string>
+    <string name="backup_import_error_too_large">Arquivo de backup muito grande (máx. 1 MB)</string>
     <string name="keys_keystore_error">O armazenamento seguro de chaves não está disponível neste dispositivo. As chaves não podem ser salvas.</string>
-    <string name="backup_import_confirm">Isso substituirá todos os seus comandos personalizados existentes. Continuar?</string>
+    <string name="backup_import_confirm">Isso substituirá todos os seus comandos e substituições existentes. Continuar?</string>
     <string name="backup_import_cancel">Cancelar</string>
     <string name="settings_check_updates">Verificar atualizações</string>
     <string name="settings_made_by">Feito por</string>

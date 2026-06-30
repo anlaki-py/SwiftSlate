@@ -90,15 +90,24 @@
     <string name="settings_temperature_desc">AI प्रतिक्रिया की रचनात्मकता</string>
 
     <!-- Backup -->
-    <string name="backup_title">बैकअप &amp; पुनर्स्थापना</string>
-    <string name="backup_desc">अपने कस्टम कमांड को JSON फ़ाइल के रूप में निर्यात या आयात करें।</string>
+    <string name="backup_title">बैकअप & पुनर्स्थापना</string>
+    <string name="backup_desc">अपने कमांड, ओवरराइड और सेटिंग्स को JSON फ़ाइल के रूप में निर्यात या आयात करें।</string>
     <string name="backup_export">निर्यात करें</string>
     <string name="backup_import">आयात करें</string>
-    <string name="backup_export_success">कमांड सफलतापूर्वक निर्यात किए गए</string>
-    <string name="backup_import_success">कमांड सफलतापूर्वक आयात किए गए</string>
-    <string name="backup_import_error">अमान्य बैकअप फ़ाइल</string>
+    <string name="backup_export_success">बैकअप सफलतापूर्वक निर्यात किया गया</string>
+    <string name="backup_import_success">बैकअप सफलतापूर्वक आयात किया गया</string>
+    <string name="backup_import_error">आयात विफल</string>
+    <string name="backup_import_error_invalid_format">मान्य SwiftSlate बैकअप फ़ाइल नहीं है</string>
+    <string name="backup_import_error_version">बैकअप प्रारूप संस्करण समर्थित नहीं है</string>
+    <string name="backup_import_error_checksum">बैकअप फ़ाइल दूषित है (चेकसम मेल नहीं खाता)</string>
+    <string name="backup_import_error_too_many">बैकअप में बहुत अधिक कमांड हैं (अधिकतम 100)</string>
+    <string name="backup_import_error_trigger">बैकअप में अमान्य ट्रिगर मिला</string>
+    <string name="backup_import_error_prompt">बैकअप में अमान्य प्रॉम्प्ट मिला</string>
+    <string name="backup_import_error_type">बैकअप में अमान्य कमांड प्रकार मिला</string>
+    <string name="backup_import_error_parse">बैकअप फ़ाइल पार्स नहीं हो सकी</string>
+    <string name="backup_import_error_too_large">बैकअप फ़ाइल बहुत बड़ी है (अधिकतम 1 MB)</string>
     <string name="keys_keystore_error">इस डिवाइस पर सुरक्षित कुंजी संग्रहण उपलब्ध नहीं है। कुंजियाँ सहेजी नहीं जा सकतीं।</string>
-    <string name="backup_import_confirm">यह आपके सभी मौजूदा कस्टम कमांड को बदल देगा। जारी रखें?</string>
+    <string name="backup_import_confirm">यह आपके सभी मौजूदा कमांड और ओवरराइड को बदल देगा। जारी रखें?</string>
     <string name="backup_import_cancel">रद्द करें</string>
     <string name="settings_check_updates">अपडेट की जाँच करें</string>
     <string name="settings_made_by">निर्माता</string>
