@@ -1,4 +1,4 @@
-package com.musheer360.swiftslate.domain
+package com.musheer360.swiftslate.api
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

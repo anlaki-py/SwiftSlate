@@ -29,6 +29,7 @@ import com.musheer360.swiftslate.ui.commandsscreen.CommandsScreen
 import com.musheer360.swiftslate.ui.DashboardScreen
 import com.musheer360.swiftslate.ui.KeysScreen
 import com.musheer360.swiftslate.ui.settingsscreen.SettingsScreen
+import com.musheer360.swiftslate.ui.shared.SwiftSlateViewModel
 import com.musheer360.swiftslate.ui.theme.SwiftSlateTheme
 
 enum class Tab(@StringRes val titleRes: Int, val icon: ImageVector) {
@@ -107,10 +108,10 @@ fun SwiftSlateMainScreen(vm: SwiftSlateViewModel = viewModel()) {
             Tab.entries.associateWith { tab ->
                 movableContentOf {
                     when (tab) {
-                        Tab.Dashboard -> DashboardScreen(vm.keyManager, vm.commandManager, vm.providerManager)
-                        Tab.Keys -> KeysScreen(vm.keyManager, vm.providerManager)
-                        Tab.Commands -> CommandsScreen(vm.commandManager)
-                        Tab.Settings -> SettingsScreen(vm.commandManager, vm.providerManager, vm.keyManager, vm.prefs)
+                        Tab.Dashboard -> DashboardScreen(vm)
+                        Tab.Keys -> KeysScreen(vm)
+                        Tab.Commands -> CommandsScreen(vm)
+                        Tab.Settings -> SettingsScreen(vm)
                     }
                 }
             }

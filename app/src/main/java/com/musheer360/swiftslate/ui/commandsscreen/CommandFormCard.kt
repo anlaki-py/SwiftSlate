@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.model.CommandType
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
@@ -43,7 +42,7 @@ import com.musheer360.swiftslate.ui.components.SlateTextField
  * @param prefix The current trigger prefix character.
  * @param collapseLabel Accessibility label for collapsing.
  * @param expandLabel Accessibility label for expanding.
- * @param commandManager Used to check override state.
+ * @param isBuiltInOverridden True if the command being edited has a user override.
  * @param onToggleExpand Callback to toggle form visibility.
  * @param onTriggerChange Callback when trigger text changes.
  * @param onPromptChange Callback when prompt text changes.
@@ -68,7 +67,7 @@ internal fun CommandFormCard(
     prefix: String,
     collapseLabel: String,
     expandLabel: String,
-    commandManager: CommandManager,
+    isBuiltInOverridden: Boolean = false,
     onToggleExpand: () -> Unit,
     onTriggerChange: (String) -> Unit,
     onPromptChange: (String) -> Unit,
@@ -196,7 +195,7 @@ internal fun CommandFormCard(
                 }
 
                 // Reset to Default — visible when editing an overridden built-in
-                if (editingBuiltInKey != null && commandManager.isBuiltInOverridden(editingBuiltInKey)) {
+                if (isBuiltInOverridden) {
                     TextButton(
                         onClick = onResetRequest,
                         modifier = Modifier.fillMaxWidth()

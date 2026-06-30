@@ -164,7 +164,7 @@ jobs:
           retention-days: 14
 
   build:
-    name: Build Signed APK
+    name: Build APK
     needs: [version, lint, test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -185,6 +185,7 @@ jobs:
           gradle-home-cache-cleanup: true
 
       - name: Decode signing keystore
+        if: needs.version.outputs.is_beta != 'true'
         shell: bash
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release.keystore
@@ -192,7 +193,22 @@ jobs:
           echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
           echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
 
+      - name: Build Debug APK
+        if: needs.version.outputs.is_beta == 'true'
+        shell: bash
+        run: |
+          result=1
+          for i in 1 2 3; do
+            ./gradlew assembleDebug --parallel --build-cache --no-daemon --configuration-cache-problems=warn --stacktrace \
+              -PversionCode=${{ needs.version.outputs.version_code }} \
+              -PversionName=${{ needs.version.outputs.version_name }} && { result=0; break; }
+            echo "::warning::Build attempt $i failed, retrying..."
+            sleep 15
+          done
+          exit $result
+
       - name: Build Release APK
+        if: needs.version.outputs.is_beta != 'true'
         shell: bash
         run: |
           result=1
@@ -218,7 +234,11 @@ jobs:
       - name: Verify APK and log size
         shell: bash
         run: |
-          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [[ "${{ needs.version.outputs.is_beta }}" == "true" ]]; then
+            APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          else
+            APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          fi
           if [ ! -f "$APK_PATH" ]; then
             echo "::error::APK not found at $APK_PATH"
             exit 1
@@ -231,8 +251,10 @@ jobs:
             echo "::error::APK suspiciously small ($SIZE bytes)"
             exit 1
           fi
+          echo "APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
 
       - name: Verify APK signature
+        if: needs.version.outputs.is_beta != 'true'
         shell: bash
         run: |
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
@@ -240,13 +262,15 @@ jobs:
 
       - name: Rename APK
         shell: bash
-        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/${{ needs.version.outputs.apk_name }}.apk
+        run: |
+          mkdir -p dist
+          cp "$APK_PATH" "dist/${{ needs.version.outputs.apk_name }}.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ${{ needs.version.outputs.apk_name }}
-          path: app/build/outputs/apk/release/${{ needs.version.outputs.apk_name }}.apk
+          path: dist/${{ needs.version.outputs.apk_name }}.apk
           retention-days: 90
 
   release:

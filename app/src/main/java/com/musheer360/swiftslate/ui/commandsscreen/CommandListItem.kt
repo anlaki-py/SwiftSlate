@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.ui.components.SlateItemCard
 
@@ -36,7 +35,7 @@ import com.musheer360.swiftslate.ui.components.SlateItemCard
  * @param cmd The command to display.
  * @param isExpanded Whether this command's details are visible.
  * @param isUndoCommand True if this is the system undo command.
- * @param commandManager Used to check if the command is undeletable.
+ * @param isUndeletable True if this command is protected from deletion.
  * @param collapseLabel Accessibility label for collapsing.
  * @param expandLabel Accessibility label for expanding.
  * @param onToggleExpand Callback to toggle expand/collapse.
@@ -49,15 +48,13 @@ internal fun CompactCommandItem(
     cmd: Command,
     isExpanded: Boolean,
     isUndoCommand: Boolean,
-    commandManager: CommandManager,
+    isUndeletable: Boolean,
     collapseLabel: String,
     expandLabel: String,
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isUndeletable = cmd.builtInKey != null &&
-        commandManager.isUndeletable(cmd.builtInKey)
     val hasActions = !isUndoCommand
 
     // Long-press action dialog state

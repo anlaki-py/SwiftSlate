@@ -21,31 +21,22 @@ import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.domain.CommandValidation
 import com.musheer360.swiftslate.domain.CommandValidationResult
-import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SlateCard
+import com.musheer360.swiftslate.ui.shared.SwiftSlateViewModel
 
-/**
- * Main commands screen with compact expandable items, search bar at top,
- * and an add/edit form at the bottom. Deleted commands (including built-in)
- * are hidden entirely. The undo command is visible but uneditable.
- *
- * @param commandManager The command manager instance for data operations.
- */
 @Composable
-fun CommandsScreen(commandManager: CommandManager) {
+fun CommandsScreen(vm: SwiftSlateViewModel) {
     val haptic = LocalHapticFeedback.current
-    var commands by remember { mutableStateOf(commandManager.getCommands()) }
+    val state by vm.commandsState.collectAsState()
 
-    // Sort built-in first, then custom
-    val displayCommands = remember(commands) {
-        val (builtIn, custom) = commands.partition { it.isBuiltIn }
+    val displayCommands = remember(state.commands) {
+        val (builtIn, custom) = state.commands.partition { it.isBuiltIn }
         builtIn + custom
     }
 
-    // Form state
     var trigger by rememberSaveable { mutableStateOf("") }
     var prompt by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
@@ -55,11 +46,10 @@ fun CommandsScreen(commandManager: CommandManager) {
     var editingBuiltInKey by rememberSaveable { mutableStateOf<String?>(null) }
     var isFormExpanded by rememberSaveable { mutableStateOf(false) }
 
-    // Dialog state
     var commandToDelete by remember { mutableStateOf<Command?>(null) }
     var builtInToReset by remember { mutableStateOf<String?>(null) }
 
-    val prefix = commandManager.getTriggerPrefix()
+    val prefix = vm.getTriggerPrefix()
     val errorPrefixMsg = stringResource(R.string.commands_error_prefix, prefix)
     val errorDuplicateMsg = stringResource(R.string.commands_error_duplicate)
     val errorConflictTemplate = stringResource(R.string.commands_error_conflict, "\u0000")
@@ -67,22 +57,14 @@ fun CommandsScreen(commandManager: CommandManager) {
     val collapseLabel = stringResource(R.string.commands_collapse)
     val expandLabel = stringResource(R.string.commands_expand)
 
-    // Search & expand state
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var expandedIds by remember { mutableStateOf(emptySet<String>()) }
 
-    /** Filters commands by search query against trigger text. */
     val filteredCommands = remember(displayCommands, searchQuery) {
         if (searchQuery.isBlank()) displayCommands
         else displayCommands.filter { it.trigger.contains(searchQuery, ignoreCase = true) }
     }
 
-    /** Refreshes command list from the manager. */
-    fun refreshCommands() {
-        commands = commandManager.getCommands()
-    }
-
-    /** Resets all form fields and collapses the form. */
     fun resetForm() {
         trigger = ""
         prompt = ""
@@ -103,12 +85,11 @@ fun CommandsScreen(commandManager: CommandManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { } // Hardware layer for smooth NavHost slide animations
+            .graphicsLayer { }
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         ScreenTitle(stringResource(R.string.commands_title))
 
-        // Search pill — shown when there are commands to search
         if (displayCommands.isNotEmpty()) {
             CommandSearchBar(
                 searchQuery = searchQuery,
@@ -127,14 +108,12 @@ fun CommandsScreen(commandManager: CommandManager) {
                 }
             )
 
-            // Commands list — takes all available vertical space
             SlateCard(modifier = Modifier.weight(1f)) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 4.dp)
                 ) {
-                    // Empty search results message
                     if (filteredCommands.isEmpty() && searchQuery.isNotBlank()) {
                         item {
                             Text(
@@ -148,14 +127,14 @@ fun CommandsScreen(commandManager: CommandManager) {
                     }
                     items(filteredCommands, key = { it.trigger }) { cmd ->
                         val isExpanded = cmd.trigger in expandedIds
-                        // Undo command is a system utility — never editable
                         val isUndoCommand = cmd.builtInKey == "undo"
+                        val isUndeletable = cmd.builtInKey != null && vm.isUndeletable(cmd.builtInKey)
 
                         CompactCommandItem(
                             cmd = cmd,
                             isExpanded = isExpanded,
                             isUndoCommand = isUndoCommand,
-                            commandManager = commandManager,
+                            isUndeletable = isUndeletable,
                             collapseLabel = collapseLabel,
                             expandLabel = expandLabel,
                             onToggleExpand = {
@@ -165,7 +144,6 @@ fun CommandsScreen(commandManager: CommandManager) {
                             },
                             onEdit = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                // Strip :<lang> display suffix for translate
                                 trigger = if (cmd.builtInKey == "translate") {
                                     cmd.trigger.replace(":<lang>", "")
                                 } else cmd.trigger
@@ -191,7 +169,8 @@ fun CommandsScreen(commandManager: CommandManager) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Collapsible add/edit form — anchored at bottom
+        val isEditingOverridden = editingBuiltInKey != null && vm.isBuiltInOverridden(editingBuiltInKey)
+
         CommandFormCard(
             isFormExpanded = isFormExpanded,
             chevronRotation = chevronRotation,
@@ -205,7 +184,7 @@ fun CommandsScreen(commandManager: CommandManager) {
             prefix = prefix,
             collapseLabel = collapseLabel,
             expandLabel = expandLabel,
-            commandManager = commandManager,
+            isBuiltInOverridden = isEditingOverridden,
             onToggleExpand = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 isFormExpanded = !isFormExpanded
@@ -220,11 +199,11 @@ fun CommandsScreen(commandManager: CommandManager) {
             onCancel = { resetForm() },
             onResetRequest = { builtInToReset = editingBuiltInKey },
             onSave = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 val trimmedTrigger = trigger.trim()
                 if (trimmedTrigger.isNotBlank() && prompt.isNotBlank()) {
-                    // Delegate validation to the domain layer
                     val result = CommandValidation.validate(
-                        trimmedTrigger, prefix, commands, editingTrigger
+                        trimmedTrigger, prefix, state.commands, editingTrigger
                     )
                     when (result) {
                         is CommandValidationResult.Error -> {
@@ -232,37 +211,24 @@ fun CommandsScreen(commandManager: CommandManager) {
                                 "prefix" -> errorPrefixMsg
                                 "empty_trigger" -> errorEmptyTrigger
                                 "duplicate" -> errorDuplicateMsg
-                                "conflict" -> errorConflictTemplate.replace(
-                                    "\u0000", result.conflictTrigger ?: ""
-                                )
+                                "conflict" -> errorConflictTemplate.replace("\u0000", result.conflictTrigger ?: "")
                                 else -> null
                             }
                             return@CommandFormCard
                         }
                         is CommandValidationResult.Valid -> { /* proceed */ }
                     }
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-
-                    if (editingBuiltInKey != null) {
-                        // Built-in override — strip trailing colons for translate
-                        val saveTrigger = if (editingBuiltInKey == "translate") {
-                            trimmedTrigger.trimEnd(':')
-                        } else trimmedTrigger
-                        commandManager.overrideBuiltInCommand(
-                            editingBuiltInKey!!, saveTrigger, prompt.trim(), description.trim()
-                        )
-                    } else {
-                        // Custom command flow
-                        if (editingTrigger != null) {
-                            commandManager.removeCustomCommand(editingTrigger!!)
-                        }
-                        commandManager.addCustomCommand(
-                            Command(trimmedTrigger, prompt.trim(), false, selectedType,
-                                description = description.trim())
-                        )
+                    val saveError = vm.saveCommand(
+                        trigger = trigger,
+                        prompt = prompt,
+                        description = description,
+                        type = selectedType,
+                        editingTrigger = editingTrigger,
+                        editingBuiltInKey = editingBuiltInKey
+                    )
+                    if (saveError == null) {
+                        resetForm()
                     }
-                    refreshCommands()
-                    resetForm()
                 }
             },
             onSaveEnabled = trigger.isNotBlank() && trigger.trim() != prefix && prompt.isNotBlank()
@@ -274,15 +240,9 @@ fun CommandsScreen(commandManager: CommandManager) {
         commandToDelete = commandToDelete,
         onConfirm = { cmdToDelete ->
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            if (cmdToDelete.builtInKey != null) {
-                commandManager.deleteBuiltInCommand(cmdToDelete.builtInKey)
-            } else {
-                commandManager.removeCustomCommand(cmdToDelete.trigger)
-            }
+            vm.deleteCommand(cmdToDelete)
             expandedIds = expandedIds - cmdToDelete.trigger
-            // Close form if editing the deleted command
             if (editingTrigger == cmdToDelete.trigger) resetForm()
-            refreshCommands()
             commandToDelete = null
         },
         onDismiss = { commandToDelete = null }
@@ -293,78 +253,10 @@ fun CommandsScreen(commandManager: CommandManager) {
         builtInToReset = builtInToReset,
         onConfirm = { key ->
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            commandManager.resetBuiltInCommand(key)
+            vm.resetBuiltInCommand(key)
             if (editingBuiltInKey == key) resetForm()
-            refreshCommands()
             builtInToReset = null
         },
         onDismiss = { builtInToReset = null }
     )
-}
-
-/**
- * Confirmation dialog shown before deleting a command.
- *
- * @param commandToDelete The command pending deletion, or null to hide.
- * @param onConfirm Callback with the confirmed command to delete.
- * @param onDismiss Callback to cancel and hide the dialog.
- */
-@Composable
-private fun DeleteCommandDialog(
-    commandToDelete: Command?,
-    onConfirm: (Command) -> Unit,
-    onDismiss: () -> Unit
-) {
-    commandToDelete?.let { cmd ->
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.delete_confirm_command_title)) },
-            text = { Text(stringResource(R.string.delete_confirm_message)) },
-            confirmButton = {
-                TextButton(onClick = { onConfirm(cmd) }) {
-                    Text(
-                        stringResource(R.string.delete_confirm_button),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.commands_cancel))
-                }
-            }
-        )
-    }
-}
-
-/**
- * Confirmation dialog shown before resetting a built-in command to defaults.
- *
- * @param builtInToReset The built-in key pending reset, or null to hide.
- * @param onConfirm Callback with the confirmed key to reset.
- * @param onDismiss Callback to cancel and hide the dialog.
- */
-@Composable
-private fun ResetCommandDialog(
-    builtInToReset: String?,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    builtInToReset?.let { key ->
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.commands_reset_confirm_title)) },
-            text = { Text(stringResource(R.string.commands_reset_confirm_message)) },
-            confirmButton = {
-                TextButton(onClick = { onConfirm(key) }) {
-                    Text(stringResource(R.string.commands_reset_command))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.commands_cancel))
-                }
-            }
-        )
-    }
 }

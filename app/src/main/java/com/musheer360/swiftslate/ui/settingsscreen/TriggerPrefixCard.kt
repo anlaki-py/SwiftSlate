@@ -12,21 +12,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
-import com.musheer360.swiftslate.manager.CommandManager
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
+import com.musheer360.swiftslate.ui.shared.SwiftSlateViewModel
 
 /**
  * Trigger prefix configuration card — single-character input with
  * inline validation for length, whitespace, and alphanumeric restrictions.
- *
- * @param commandManager Used to read and update the trigger prefix.
  */
 @Composable
-internal fun TriggerPrefixCard(commandManager: CommandManager) {
+internal fun TriggerPrefixCard(vm: SwiftSlateViewModel) {
     val haptic = LocalHapticFeedback.current
 
-    var triggerPrefix by remember { mutableStateOf(commandManager.getTriggerPrefix()) }
+    var triggerPrefix by remember { mutableStateOf(vm.getTriggerPrefix()) }
     var prefixError by remember { mutableStateOf<String?>(null) }
 
     val prefixErrorLength = stringResource(R.string.settings_prefix_error_length)
@@ -56,7 +54,7 @@ internal fun TriggerPrefixCard(commandManager: CommandManager) {
                         filtered[0].isLetterOrDigit() -> prefixErrorAlphanumeric
                         else -> {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            commandManager.setTriggerPrefix(filtered)
+                            vm.setTriggerPrefix(filtered)
                             null
                         }
                     }

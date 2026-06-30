@@ -9,9 +9,9 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
-import com.musheer360.swiftslate.manager.CommandManager
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.manager.ProviderManager
+import com.musheer360.swiftslate.data.CommandManager
+import com.musheer360.swiftslate.data.KeyManager
+import com.musheer360.swiftslate.data.ProviderManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import kotlinx.coroutines.CancellationException

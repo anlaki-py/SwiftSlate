@@ -1,4 +1,4 @@
-package com.musheer360.swiftslate.manager
+package com.musheer360.swiftslate.data
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider

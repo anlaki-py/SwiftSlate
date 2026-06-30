@@ -7,8 +7,8 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.musheer360.swiftslate.api.ApiError
 import com.musheer360.swiftslate.api.ApiException
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
-import com.musheer360.swiftslate.manager.KeyManager
-import com.musheer360.swiftslate.manager.ProviderManager
+import com.musheer360.swiftslate.data.KeyManager
+import com.musheer360.swiftslate.data.ProviderManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.Provider
 import kotlinx.coroutines.CancellationException

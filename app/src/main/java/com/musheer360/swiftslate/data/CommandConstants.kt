@@ -1,4 +1,4 @@
-package com.musheer360.swiftslate.manager
+package com.musheer360.swiftslate.data
 
 /**
  * Static definitions for built-in commands.

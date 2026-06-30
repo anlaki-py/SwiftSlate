@@ -1,7 +1,5 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
-import android.content.SharedPreferences
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
@@ -95,7 +92,6 @@ internal fun ProviderDropdown(
  *
  * @param temperature Current temperature value.
  * @param haptic Haptic feedback provider.
- * @param prefs SharedPreferences to persist the value.
  * @param onTemperatureChange Callback when temperature changes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,7 +99,6 @@ internal fun ProviderDropdown(
 internal fun TemperatureSlider(
     temperature: Float,
     haptic: HapticFeedback,
-    prefs: SharedPreferences,
     onTemperatureChange: (Float) -> Unit
 ) {
     Row(
@@ -128,10 +123,7 @@ internal fun TemperatureSlider(
     val sliderState = rememberSliderState(
         value = temperature,
         valueRange = 0f..2f,
-        steps = 19,
-        onValueChangeFinished = {
-            prefs.edit().putFloat("temperature", temperature).apply()
-        }
+        steps = 19
     )
     val sliderInteraction = remember { MutableInteractionSource() }
     val sliderColors = SliderDefaults.colors(
@@ -173,7 +165,6 @@ internal fun TemperatureSlider(
  *
  * @param timeout Current timeout value.
  * @param haptic Haptic feedback provider.
- * @param prefs SharedPreferences to persist the value.
  * @param onTimeoutChange Callback when timeout changes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -181,7 +172,6 @@ internal fun TemperatureSlider(
 internal fun TimeoutSlider(
     timeout: Float,
     haptic: HapticFeedback,
-    prefs: SharedPreferences,
     onTimeoutChange: (Float) -> Unit
 ) {
     Row(
@@ -206,10 +196,7 @@ internal fun TimeoutSlider(
     val sliderState = rememberSliderState(
         value = timeout,
         valueRange = 5f..60f,
-        steps = 54,
-        onValueChangeFinished = {
-            prefs.edit().putFloat("timeout", timeout).apply()
-        }
+        steps = 54
     )
     val sliderInteraction = remember { MutableInteractionSource() }
     val sliderColors = SliderDefaults.colors(
@@ -245,17 +232,4 @@ internal fun TimeoutSlider(
     )
 }
 
-/**
- * Clickable modifier that suppresses the default ripple indication.
- * Used for text fields that act as tap targets (e.g. model selector).
- *
- * @param onClick The action to perform on click.
- * @return A [Modifier] with click handling and no ripple.
- */
-internal fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = composed {
-    this.clickable(
-        indication = null,
-        interactionSource = remember { MutableInteractionSource() },
-        onClick = onClick
-    )
-}
+
