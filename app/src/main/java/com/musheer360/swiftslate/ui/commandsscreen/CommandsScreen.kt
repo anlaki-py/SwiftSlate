@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
+import kotlinx.coroutines.launch
 import com.musheer360.swiftslate.SwiftSlateViewModel
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
@@ -33,6 +34,7 @@ fun CommandsScreen(viewModel: SwiftSlateViewModel) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddForm by remember { mutableStateOf(false) }
     var editingCommand by remember { mutableStateOf<Command?>(null) }
+    val scope = rememberCoroutineScope()
 
     val builtInCommands = commands.filter { it.isBuiltIn }
     val customCommands = commands.filter { !it.isBuiltIn }
@@ -91,12 +93,12 @@ fun CommandsScreen(viewModel: SwiftSlateViewModel) {
                             command = cmd,
                             onEdit = { editingCommand = cmd },
                             onDelete = {
-                                viewModel.viewModelScope.launch {
+                                scope.launch {
                                     viewModel.commandRepository.deleteBuiltInCommand(cmd.builtInKey!!)
                                 }
                             },
                             onReset = {
-                                viewModel.viewModelScope.launch {
+                                scope.launch {
                                     viewModel.commandRepository.resetBuiltInCommand(cmd.builtInKey!!)
                                 }
                             }
@@ -114,7 +116,7 @@ fun CommandsScreen(viewModel: SwiftSlateViewModel) {
                             command = cmd,
                             onEdit = { editingCommand = cmd },
                             onDelete = {
-                                viewModel.viewModelScope.launch {
+                                scope.launch {
                                     viewModel.commandRepository.removeCustomCommand(cmd.trigger)
                                 }
                             },
@@ -134,7 +136,7 @@ fun CommandsScreen(viewModel: SwiftSlateViewModel) {
             prefix = viewModel.commandRepository.getTriggerPrefix(),
             existingCommands = commands,
             onSave = { command ->
-                viewModel.viewModelScope.launch {
+                scope.launch {
                     if (editingCommand != null) {
                         viewModel.commandRepository.removeCustomCommand(editingCommand!!.trigger)
                     }

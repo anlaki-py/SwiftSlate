@@ -184,7 +184,7 @@ class CommandRepositoryImpl @Inject constructor(
         builtInKey in CommandConstants.UNDELETABLE_KEYS
 
     override fun isBuiltInOverridden(builtInKey: String): Boolean {
-        return runBlockingOrNull { overrideDao.getByKey(builtInKey) != null }
+        return runBlockingOrNull { overrideDao.getByKey(builtInKey) != null } ?: false
     }
 
     override fun getTranslatePrefix(): String {

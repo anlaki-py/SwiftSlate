@@ -27,6 +27,9 @@ object CommandConstants {
     /** Default description for the translate command. */
     const val DEFAULT_TRANSLATE_DESCRIPTION = "Translate to specified language"
 
+    /** Default trigger prefix character. */
+    const val DEFAULT_PREFIX = "?"
+
     /** Built-in command keys that cannot be deleted by the user. */
     val UNDELETABLE_KEYS = setOf("translate", "undo")
 

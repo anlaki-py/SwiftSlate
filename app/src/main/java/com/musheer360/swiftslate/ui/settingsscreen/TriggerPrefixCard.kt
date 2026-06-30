@@ -15,10 +15,12 @@ import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.data.repository.CommandRepository
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.components.SlateTextField
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun TriggerPrefixCard(commandRepository: CommandRepository) {
     val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
 
     var triggerPrefix by remember { mutableStateOf(commandRepository.getTriggerPrefix()) }
     var prefixError by remember { mutableStateOf<String?>(null) }
@@ -50,7 +52,7 @@ internal fun TriggerPrefixCard(commandRepository: CommandRepository) {
                         filtered[0].isLetterOrDigit() -> prefixErrorAlphanumeric
                         else -> {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            kotlinx.coroutines.MainScope().launch {
+                            scope.launch {
                                 commandRepository.setTriggerPrefix(filtered)
                             }
                             null

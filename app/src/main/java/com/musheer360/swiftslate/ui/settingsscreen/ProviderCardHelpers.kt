@@ -1,5 +1,6 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding

@@ -5,6 +5,8 @@ import com.musheer360.swiftslate.data.remote.ApiException
 import com.musheer360.swiftslate.data.remote.GenerateResult
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException

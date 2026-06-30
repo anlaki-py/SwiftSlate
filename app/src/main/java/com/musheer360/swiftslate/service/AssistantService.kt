@@ -11,6 +11,7 @@ import com.musheer360.swiftslate.data.remote.OpenAiClient
 import com.musheer360.swiftslate.data.repository.CommandRepository
 import com.musheer360.swiftslate.data.repository.KeyRepository
 import com.musheer360.swiftslate.data.repository.ProviderRepository
+import com.musheer360.swiftslate.manager.CommandConstants
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +23,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
