@@ -1,7 +1,6 @@
 package com.musheer360.swiftslate.ui.commandsscreen
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -38,11 +37,6 @@ fun CommandSearchBar(
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline
-        )
+        modifier = Modifier.fillMaxWidth()
     )
 }

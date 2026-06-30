@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.domain.EndpointValidation
 import com.musheer360.swiftslate.domain.EndpointValidationResult
@@ -50,7 +49,7 @@ internal fun ProviderFormDialog(
                     Text(
                         text = stringResource(R.string.settings_endpoint_error_scheme),
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 13.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }

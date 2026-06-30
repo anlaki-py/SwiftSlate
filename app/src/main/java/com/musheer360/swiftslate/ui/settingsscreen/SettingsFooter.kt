@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.BuildConfig
 import com.musheer360.swiftslate.R
 
@@ -26,7 +25,6 @@ internal fun SettingsFooter() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
             .clickable(interactionSource = null, indication = null) {
                 uriHandler.openUri("https://github.com/anlaki-py/SwiftSlate/releases/latest")
             },
@@ -35,17 +33,16 @@ internal fun SettingsFooter() {
     ) {
         Text(
             text = stringResource(R.string.dashboard_version, BuildConfig.VERSION_NAME) + " · ",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = stringResource(R.string.settings_check_updates),
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary
         )
     }
 
-    // Developer credit
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -53,12 +50,12 @@ internal fun SettingsFooter() {
     ) {
         Text(
             text = stringResource(R.string.settings_made_by) + " ",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = "anlaki",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(interactionSource = null, indication = null) {
                 uriHandler.openUri("https://anlaki.dev")

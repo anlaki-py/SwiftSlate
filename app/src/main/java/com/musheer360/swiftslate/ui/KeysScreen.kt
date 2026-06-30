@@ -6,7 +6,6 @@ import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -14,16 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.SwiftSlateViewModel
 import com.musheer360.swiftslate.domain.KeyValidation
@@ -45,14 +41,12 @@ fun KeysScreen(viewModel: SwiftSlateViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { }
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             ScreenTitle(stringResource(R.string.keys_title))
             SlateCard {
                 Text(
                     text = stringResource(R.string.keys_no_provider),
-                    fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -82,15 +76,13 @@ fun KeysScreen(viewModel: SwiftSlateViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { }
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         ScreenTitle(stringResource(R.string.keys_title))
 
         Text(
             text = stringResource(R.string.keys_provider_label, activeProvider!!.name),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
@@ -100,7 +92,7 @@ fun KeysScreen(viewModel: SwiftSlateViewModel) {
                 Text(
                     text = keystoreErrorMsg,
                     color = MaterialTheme.colorScheme.error,
-                    fontSize = 13.sp
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -160,8 +152,7 @@ fun KeysScreen(viewModel: SwiftSlateViewModel) {
                     }
                 },
                 enabled = newKey.isNotBlank() && !isTesting && viewModel.keyRepository.keystoreAvailable,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (isTesting) stringResource(R.string.keys_testing) else stringResource(R.string.keys_add_key))
             }
@@ -169,7 +160,7 @@ fun KeysScreen(viewModel: SwiftSlateViewModel) {
                 Text(
                     text = testResult!!,
                     color = if (testSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -180,16 +171,13 @@ fun KeysScreen(viewModel: SwiftSlateViewModel) {
         if (keys.isNotEmpty()) {
             SlateCard {
                 LazyColumn(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)),
+                    modifier = Modifier.weight(1f).clip(MaterialTheme.shapes.small),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(keys, key = { index, k -> "$index-${k.hashCode()}" }) { _, key ->
                         SlateItemCard {
                             Text(
                                 text = "••••••••" + key.takeLast(4),
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {}
                             )
                             IconButton(

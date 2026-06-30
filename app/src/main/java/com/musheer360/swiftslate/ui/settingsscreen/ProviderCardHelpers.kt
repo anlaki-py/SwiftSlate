@@ -2,16 +2,13 @@ package com.musheer360.swiftslate.ui.settingsscreen
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.model.Provider
 import com.musheer360.swiftslate.ui.components.SlateTextField
@@ -36,7 +33,6 @@ internal fun ProviderDropdown(
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -74,13 +70,11 @@ internal fun TemperatureSlider(
     Column {
         Text(
             text = stringResource(R.string.settings_temperature_title),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.titleSmall
         )
         Text(
             text = stringResource(R.string.settings_temperature_desc),
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Slider(
@@ -94,7 +88,7 @@ internal fun TemperatureSlider(
         )
         Text(
             text = "%.1f".format(temperature),
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -109,9 +103,7 @@ internal fun TimeoutSlider(
     Column {
         Text(
             text = stringResource(R.string.settings_timeout_desc),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.titleSmall
         )
         Slider(
             value = timeout,
@@ -124,7 +116,7 @@ internal fun TimeoutSlider(
         )
         Text(
             text = "%.0fs".format(timeout),
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

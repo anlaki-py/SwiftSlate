@@ -3,7 +3,6 @@ package com.musheer360.swiftslate.ui.settingsscreen
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -12,7 +11,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.data.repository.CommandRepository
 import com.musheer360.swiftslate.ui.components.SlateCard
@@ -86,7 +84,7 @@ internal fun BackupCard(commandRepository: CommandRepository) {
     SlateCard {
         Text(
             text = stringResource(R.string.backup_desc),
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -100,8 +98,7 @@ internal fun BackupCard(commandRepository: CommandRepository) {
                     backupMessage = null
                     exportLauncher.launch("swiftslate-commands.json")
                 },
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                modifier = Modifier.weight(1f)
             ) {
                 Text(stringResource(R.string.backup_export))
             }
@@ -111,8 +108,7 @@ internal fun BackupCard(commandRepository: CommandRepository) {
                     backupMessage = null
                     showImportConfirm = true
                 },
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                modifier = Modifier.weight(1f)
             ) {
                 Text(stringResource(R.string.backup_import))
             }
@@ -122,7 +118,7 @@ internal fun BackupCard(commandRepository: CommandRepository) {
                 text = msg,
                 color = if (backupSuccess) MaterialTheme.colorScheme.tertiary
                        else MaterialTheme.colorScheme.error,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }

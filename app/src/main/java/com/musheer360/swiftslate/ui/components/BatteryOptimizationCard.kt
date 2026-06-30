@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,9 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 
 /**
@@ -60,25 +56,13 @@ fun BatteryOptimizationCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = if (!isBatteryOptimized) stringResource(R.string.battery_optimization_exempt)
-                    else stringResource(R.string.battery_optimization_restricted),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    else stringResource(R.string.battery_optimization_restricted)
                 )
             }
             // Show the unrestrict button only when battery optimization is active
             if (isBatteryOptimized) {
-                Button(
-                    onClick = onUnrestrictClick,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        stringResource(R.string.battery_optimization_disable),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                Button(onClick = onUnrestrictClick) {
+                    Text(stringResource(R.string.battery_optimization_disable))
                 }
             }
         }

@@ -11,10 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.ui.components.SlateItemCard
@@ -37,9 +35,7 @@ fun CommandListItem(
             ) {
                 Text(
                     text = command.trigger,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -50,7 +46,7 @@ fun CommandListItem(
                     ) {
                         Text(
                             text = stringResource(R.string.commands_modified),
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -60,7 +56,7 @@ fun CommandListItem(
             if (command.description.isNotBlank()) {
                 Text(
                     text = command.description,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -68,7 +64,7 @@ fun CommandListItem(
             }
             Text(
                 text = command.type.name,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
         }

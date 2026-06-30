@@ -5,7 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
@@ -18,7 +18,6 @@ fun SettingsScreen(viewModel: SwiftSlateViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { }
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .verticalScroll(rememberScrollState())
     ) {

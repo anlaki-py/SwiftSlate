@@ -8,21 +8,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.SwiftSlateViewModel
 import com.musheer360.swiftslate.service.AccessibilityHelper
@@ -59,7 +55,6 @@ fun DashboardScreen(viewModel: SwiftSlateViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { }
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
@@ -85,10 +80,7 @@ fun DashboardScreen(viewModel: SwiftSlateViewModel) {
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = if (state.isServiceEnabled) stringResource(R.string.service_status_active)
-                        else stringResource(R.string.service_status_inactive),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        else stringResource(R.string.service_status_inactive)
                     )
                 }
                 if (!state.isServiceEnabled) {
@@ -96,16 +88,9 @@ fun DashboardScreen(viewModel: SwiftSlateViewModel) {
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        }
                     ) {
-                        Text(
-                            stringResource(R.string.service_enable),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                        Text(stringResource(R.string.service_enable))
                     }
                 }
             }
@@ -117,15 +102,13 @@ fun DashboardScreen(viewModel: SwiftSlateViewModel) {
             val provider = state.activeProvider
             if (provider != null) {
                 Text(
-                    text = stringResource(R.string.dashboard_provider_info, provider.name, state.keyCount),
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(R.string.dashboard_provider_info, provider.name, state.keyCount)
                 )
             } else {
                 Text(
                     text = stringResource(R.string.settings_no_provider_hint),
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    fontSize = 13.sp
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
@@ -148,8 +131,7 @@ fun DashboardScreen(viewModel: SwiftSlateViewModel) {
             Text(
                 text = stringResource(R.string.dashboard_how_to_use_body, state.currentPrefix),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 15.sp,
-                lineHeight = 24.sp
+                style = MaterialTheme.typography.bodyMedium
             )
         }
 

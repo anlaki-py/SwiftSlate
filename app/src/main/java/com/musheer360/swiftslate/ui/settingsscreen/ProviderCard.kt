@@ -1,7 +1,6 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -13,9 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.data.remote.OpenAiClient
 import com.musheer360.swiftslate.data.repository.KeyRepository
@@ -109,7 +106,7 @@ internal fun ProviderCard(
             ) {
                 Text(
                     text = activeProvider!!.endpoint,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
@@ -139,13 +136,12 @@ internal fun ProviderCard(
                     fetchModelsForProvider(activeProvider!!)
                     showModelPicker = true
                 },
-                shape = RoundedCornerShape(10.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = modelLabel,
-                    fontSize = 15.sp,
                     color = if (hasModel) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
@@ -155,7 +151,7 @@ internal fun ProviderCard(
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = stringResource(R.string.settings_no_provider_hint),
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

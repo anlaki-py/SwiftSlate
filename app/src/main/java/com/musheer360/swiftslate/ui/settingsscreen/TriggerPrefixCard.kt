@@ -10,7 +10,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.data.repository.CommandRepository
 import com.musheer360.swiftslate.ui.components.SlateCard
@@ -37,7 +36,7 @@ internal fun TriggerPrefixCard(commandRepository: CommandRepository) {
         ) {
             Text(
                 text = stringResource(R.string.settings_trigger_prefix_desc, triggerPrefix),
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f).padding(end = 16.dp)
             )
@@ -67,7 +66,7 @@ internal fun TriggerPrefixCard(commandRepository: CommandRepository) {
             Text(
                 text = msg,
                 color = MaterialTheme.colorScheme.error,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }

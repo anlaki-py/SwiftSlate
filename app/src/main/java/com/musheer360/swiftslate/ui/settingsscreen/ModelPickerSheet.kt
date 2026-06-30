@@ -3,7 +3,6 @@ package com.musheer360.swiftslate.ui.settingsscreen
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -14,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.ui.components.SlateTextField
 
@@ -34,7 +32,7 @@ internal fun ModelPickerSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier
@@ -44,8 +42,7 @@ internal fun ModelPickerSheet(
         ) {
             Text(
                 text = stringResource(R.string.settings_model_title),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -64,7 +61,6 @@ internal fun ModelPickerSheet(
                             onModelSelected(manualModel.trim())
                         }
                     },
-                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(stringResource(R.string.commands_save_command))
@@ -86,7 +82,6 @@ internal fun ModelPickerSheet(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -113,7 +108,7 @@ internal fun ModelPickerSheet(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     stringResource(R.string.settings_models_loading),
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -122,7 +117,7 @@ internal fun ModelPickerSheet(
                     errorMessage != null -> {
                         Text(
                             text = errorMessage,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
@@ -134,7 +129,7 @@ internal fun ModelPickerSheet(
                         if (filteredModels.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.settings_models_empty),
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
@@ -146,7 +141,7 @@ internal fun ModelPickerSheet(
                                 items(filteredModels) { model ->
                                     Surface(
                                         onClick = { onModelSelected(model) },
-                                        shape = RoundedCornerShape(8.dp),
+                                        shape = MaterialTheme.shapes.small,
                                         color = if (model == selectedModel)
                                             MaterialTheme.colorScheme.primaryContainer
                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -154,7 +149,6 @@ internal fun ModelPickerSheet(
                                     ) {
                                         Text(
                                             text = model,
-                                            fontSize = 14.sp,
                                             fontWeight = if (model == selectedModel) FontWeight.SemiBold
                                                 else FontWeight.Normal,
                                             color = if (model == selectedModel)

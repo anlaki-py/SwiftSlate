@@ -1,30 +1,26 @@
 package com.musheer360.swiftslate.ui.components
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @Composable
 fun SlateCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            content = content
-        )
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), content = content)
     }
 }
 
@@ -32,8 +28,7 @@ fun SlateCard(
 fun ScreenTitle(title: String) {
     Text(
         text = title,
-        fontSize = 32.sp,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.headlineLarge,
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.padding(bottom = 20.dp)
     )
@@ -43,9 +38,7 @@ fun ScreenTitle(title: String) {
 fun SectionHeader(text: String) {
     Text(
         text = text.uppercase(),
-        fontSize = 15.sp,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 1.sp,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 8.dp)
     )
@@ -74,21 +67,13 @@ fun SlateTextField(
         isError = isError,
         trailingIcon = trailingIcon,
         visualTransformation = visualTransformation,
-        shape = RoundedCornerShape(10.dp),
-        modifier = modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline
-        )
+        modifier = modifier.fillMaxWidth()
     )
 }
 
 @Composable
 fun SlateDivider() {
-    HorizontalDivider(
-        thickness = 0.5.dp,
-        color = MaterialTheme.colorScheme.outline
-    )
+    HorizontalDivider()
 }
 
 @Composable
@@ -96,11 +81,7 @@ fun SlateItemCard(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
