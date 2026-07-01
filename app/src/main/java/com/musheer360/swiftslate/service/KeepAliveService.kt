@@ -77,7 +77,7 @@ class KeepAliveService : Service() {
      */
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // Re-post to survive recent-app swipe
+        // Re-post to survive recent-app swipe unless the user explicitly stopped it
         start(applicationContext)
     }
 
@@ -93,7 +93,7 @@ class KeepAliveService : Service() {
      */
     override fun onDestroy() {
         super.onDestroy()
-        // Attempt self-restart — effective when battery optimization is disabled
+        // Attempt self-restart unless the user explicitly stopped it
         start(applicationContext)
     }
 
@@ -113,6 +113,8 @@ class KeepAliveService : Service() {
          * @param context Any context (application, activity, or service).
          */
         fun start(context: Context) {
+            if (isUserStopped(context)) return
+
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -140,7 +142,27 @@ class KeepAliveService : Service() {
          * @param context Any context.
          */
         fun stop(context: Context) {
+            setUserStopped(context, true)
             context.stopService(Intent(context, KeepAliveService::class.java))
         }
+
+        fun allowStart(context: Context) {
+            setUserStopped(context, false)
+        }
+
+        private fun isUserStopped(context: Context): Boolean {
+            return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_USER_STOPPED, false)
+        }
+
+        private fun setUserStopped(context: Context, isStopped: Boolean) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_USER_STOPPED, isStopped)
+                .apply()
+        }
+
+        private const val PREFS_NAME = "keep_alive_prefs"
+        private const val KEY_USER_STOPPED = "user_stopped"
     }
 }

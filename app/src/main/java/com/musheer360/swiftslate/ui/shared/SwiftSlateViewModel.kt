@@ -17,6 +17,7 @@ import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import com.musheer360.swiftslate.model.Provider
 import com.musheer360.swiftslate.service.AccessibilityHelper
+import com.musheer360.swiftslate.service.AssistantService
 import com.musheer360.swiftslate.service.BatteryOptimizationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +66,17 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
             currentPrefix = commandManager.getTriggerPrefix(),
             isBatteryOptimized = !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(app)
         )
+    }
+
+    fun stopService(): Boolean {
+        val app = getApplication<Application>()
+        val stopped = AssistantService.stopIfRunning(app)
+        if (stopped) {
+            _dashboardState.value = _dashboardState.value.copy(isServiceEnabled = false)
+        } else {
+            refreshDashboard()
+        }
+        return stopped
     }
 
     // -- Commands --

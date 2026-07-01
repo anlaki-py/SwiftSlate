@@ -100,22 +100,27 @@ fun DashboardScreen(vm: SwiftSlateViewModel) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                if (!state.isServiceEnabled) {
-                    Button(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (state.isServiceEnabled) {
+                            vm.stopService()
+                        } else {
                             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Text(
-                            stringResource(R.string.service_enable),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (state.isServiceEnabled) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        if (state.isServiceEnabled) stringResource(R.string.service_stop)
+                        else stringResource(R.string.service_enable),
+                        color = if (state.isServiceEnabled) MaterialTheme.colorScheme.onError
+                        else MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             }
 

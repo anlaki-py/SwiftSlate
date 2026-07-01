@@ -2,6 +2,7 @@ package com.musheer360.swiftslate.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.HapticFeedbackConstants
@@ -24,6 +25,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
 
 /**
  * Accessibility service that detects command triggers typed in any text field,
@@ -58,9 +60,19 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
     private var lastTriggerRefresh = 0L
     private var watchdogRunnable: Runnable? = null
 
-    private companion object {
+    companion object {
+        private var currentService = WeakReference<AssistantService>(null)
+
         const val TRIGGER_REFRESH_INTERVAL_MS = 5_000L
         const val PROCESSING_WATCHDOG_MS = 120_000L
+
+        fun stopIfRunning(context: Context): Boolean {
+            KeepAliveService.stop(context)
+            val service = currentService.get() ?: return false
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
+            service.disableSelf()
+            return true
+        }
     }
 
     /** Unique identifier for a node: windowId + resource name (or hash). */
@@ -80,9 +92,11 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             serviceScope, handler
         )
         updateTriggers()
+        currentService = WeakReference(this)
 
         // Ensure the foreground keep-alive is running so the process
         // has elevated priority even without the app being open
+        KeepAliveService.allowStart(applicationContext)
         KeepAliveService.start(applicationContext)
     }
 
@@ -278,6 +292,9 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
     override fun onDestroy() {
         super.onDestroy(); isProcessing.set(false)
+        if (currentService.get() === this) {
+            currentService.clear()
+        }
         handler.removeCallbacksAndMessages(null)
         textReplacer.clearState(); toastManager.dismissOverlayToast()
         serviceScope.cancel()

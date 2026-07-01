@@ -61,7 +61,13 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
     }
 
     // Sync local provider state from ViewModel
-    LaunchedEffect(state.activeProviderId, state.providers) {
+    LaunchedEffect(
+        state.activeProviderId,
+        state.activeProviderName,
+        state.activeProviderEndpoint,
+        state.activeProviderModel,
+        state.providers
+    ) {
         providers = state.providers
         val currentActiveProviderId = state.activeProviderId
         activeProvider = if (currentActiveProviderId != null) {
@@ -227,7 +233,9 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
             errorMessage = noKeysMsg ?: modelFetchError,
             onModelSelected = { model ->
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                vm.updateProvider(activeProvider!!.id, selectedModel = model)
+                val currentProvider = activeProvider!!
+                activeProvider = currentProvider.copy(selectedModel = model)
+                vm.updateProvider(currentProvider.id, selectedModel = model)
                 showModelPicker = false
             },
             onDismiss = { showModelPicker = false }
