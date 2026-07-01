@@ -9,6 +9,7 @@
     <string name="service_status_active">Ativo</string>
     <string name="service_status_inactive">Inativo</string>
     <string name="service_enable">Ativar</string>
+    <string name="service_stop">Parar</string>
     <string name="dashboard_api_keys_title">Chaves API</string>
     <string name="dashboard_keys_configured">%1$d chaves configuradas</string>
     <string name="dashboard_add_key_hint">Adicione uma chave API para começar.</string>

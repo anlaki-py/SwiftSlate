@@ -9,6 +9,7 @@
     <string name="service_status_active">已启用</string>
     <string name="service_status_inactive">未启用</string>
     <string name="service_enable">启用</string>
+    <string name="service_stop">停止</string>
     <string name="dashboard_api_keys_title">API 密钥</string>
     <string name="dashboard_keys_configured">已配置 %1$d 个密钥</string>
     <string name="dashboard_add_key_hint">添加一个 API 密钥以开始使用。</string>

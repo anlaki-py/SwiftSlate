@@ -9,6 +9,7 @@
     <string name="service_status_active">सक्रिय</string>
     <string name="service_status_inactive">निष्क्रिय</string>
     <string name="service_enable">सक्रिय करें</string>
+    <string name="service_stop">रोकें</string>
     <string name="dashboard_api_keys_title">API कुंजियाँ</string>
     <string name="dashboard_keys_configured">%1$d कुंजियाँ कॉन्फ़िगर की गईं</string>
     <string name="dashboard_add_key_hint">शुरू करने के लिए एक API कुंजी जोड़ें।</string>
