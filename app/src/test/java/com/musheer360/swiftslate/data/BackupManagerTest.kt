@@ -17,6 +17,8 @@ class BackupManagerTest {
     private lateinit var commandPrefs: android.content.SharedPreferences
     private lateinit var overridePrefs: android.content.SharedPreferences
     private lateinit var settingsPrefs: android.content.SharedPreferences
+    private lateinit var providerPrefs: android.content.SharedPreferences
+    private lateinit var assistantPrefs: android.content.SharedPreferences
 
     @Before
     fun setUp() {
@@ -24,10 +26,14 @@ class BackupManagerTest {
         commandPrefs = context.getSharedPreferences("commands", 0)
         overridePrefs = context.getSharedPreferences("command_overrides", 0)
         settingsPrefs = context.getSharedPreferences("settings", 0)
+        providerPrefs = context.getSharedPreferences("providers_prefs", 0)
+        assistantPrefs = context.getSharedPreferences("assistant_service_prefs", 0)
 
         commandPrefs.edit().clear().commit()
         overridePrefs.edit().clear().commit()
         settingsPrefs.edit().clear().commit()
+        providerPrefs.edit().clear().commit()
+        assistantPrefs.edit().clear().commit()
 
         backupManager = BackupManager(context)
     }
@@ -60,7 +66,7 @@ class BackupManagerTest {
     fun exportBackup_includesVersionAndSignature() {
         val json = backupManager.exportBackup()
         val root = JSONObject(json)
-        assertEquals(2, root.getInt("version"))
+        assertEquals(3, root.getInt("version"))
         assertEquals("SWIFTSATE_BACKUP", root.getString("signature"))
     }
 
@@ -108,6 +114,36 @@ class BackupManagerTest {
         val root = JSONObject(json)
         assertTrue(root.getString("checksum").isNotEmpty())
         assertEquals(64, root.getString("checksum").length)
+    }
+
+    @Test
+    fun exportBackup_includesProvidersAndSettings() {
+        providerPrefs.edit()
+            .putString(
+                "providers_json",
+                JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("id", "provider-1")
+                        put("name", "Provider")
+                        put("endpoint", "https://example.com")
+                        put("selectedModel", "model-1")
+                    })
+                }.toString()
+            )
+            .putString("active_provider_id", "provider-1")
+            .commit()
+        settingsPrefs.edit().putFloat("temperature", 0.5f).putFloat("timeout", 20f).commit()
+        assistantPrefs.edit().putBoolean("processing_enabled", false).commit()
+
+        val root = JSONObject(backupManager.exportBackup())
+
+        assertEquals("provider-1", root.getString("active_provider_id"))
+        assertEquals(1, root.getJSONArray("providers").length())
+        assertTrue(root.getJSONObject("api_keys").has("provider-1"))
+        val settings = root.getJSONObject("settings")
+        assertEquals(0.5, settings.getDouble("temperature"), 0.001)
+        assertEquals(20.0, settings.getDouble("timeout"), 0.001)
+        assertFalse(settings.getBoolean("processing_enabled"))
     }
 
     // --- Import v2 ---
@@ -520,6 +556,12 @@ class BackupManagerTest {
         payload.put("custom_commands", root.optJSONArray("custom_commands"))
         payload.put("overrides", root.optJSONObject("overrides"))
         payload.put("deletions", root.optJSONArray("deletions"))
+        if (root.optInt("version") >= 3) {
+            payload.put("providers", root.optJSONArray("providers"))
+            payload.put("active_provider_id", root.opt("active_provider_id"))
+            payload.put("api_keys", root.optJSONObject("api_keys"))
+            payload.put("settings", root.optJSONObject("settings"))
+        }
         val bytes = payload.toString().toByteArray(Charsets.UTF_8)
         val digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
         return digest.joinToString("") { "%02x".format(it) }
