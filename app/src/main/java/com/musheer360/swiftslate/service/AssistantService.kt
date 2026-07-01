@@ -2,7 +2,6 @@ package com.musheer360.swiftslate.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.HapticFeedbackConstants
@@ -25,7 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.lang.ref.WeakReference
+
 
 /**
  * Accessibility service that detects command triggers typed in any text field,
@@ -61,17 +60,22 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
     private var watchdogRunnable: Runnable? = null
 
     companion object {
-        private var currentService = WeakReference<AssistantService>(null)
+        private const val PREFS_NAME = "assistant_service_prefs"
+        private const val KEY_PROCESSING_ENABLED = "processing_enabled"
 
         const val TRIGGER_REFRESH_INTERVAL_MS = 5_000L
         const val PROCESSING_WATCHDOG_MS = 120_000L
 
-        fun stopIfRunning(context: Context): Boolean {
-            KeepAliveService.stop(context)
-            val service = currentService.get() ?: return false
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
-            service.disableSelf()
-            return true
+        fun isProcessingEnabled(context: Context): Boolean {
+            return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_PROCESSING_ENABLED, true)
+        }
+
+        fun setProcessingEnabled(context: Context, isEnabled: Boolean) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_PROCESSING_ENABLED, isEnabled)
+                .apply()
         }
     }
 
@@ -92,12 +96,12 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
             serviceScope, handler
         )
         updateTriggers()
-        currentService = WeakReference(this)
 
-        // Ensure the foreground keep-alive is running so the process
-        // has elevated priority even without the app being open
-        KeepAliveService.allowStart(applicationContext)
-        KeepAliveService.start(applicationContext)
+        // Ensure the foreground keep-alive is running only while command processing is enabled.
+        if (isProcessingEnabled(applicationContext)) {
+            KeepAliveService.allowStart(applicationContext)
+            KeepAliveService.start(applicationContext)
+        }
     }
 
     /**
@@ -157,6 +161,7 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
+        if (!isProcessingEnabled(applicationContext)) return
         if (event.packageName?.toString() == packageName || isProcessing.get()) return
 
         val source = event.source ?: return
@@ -292,9 +297,6 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
     override fun onDestroy() {
         super.onDestroy(); isProcessing.set(false)
-        if (currentService.get() === this) {
-            currentService.clear()
-        }
         handler.removeCallbacksAndMessages(null)
         textReplacer.clearState(); toastManager.dismissOverlayToast()
         serviceScope.cancel()

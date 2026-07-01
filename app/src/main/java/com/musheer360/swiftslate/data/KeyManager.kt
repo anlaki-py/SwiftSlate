@@ -229,6 +229,30 @@ class KeyManager(context: Context) {
     }
 
     /**
+     * Replaces all API keys for all providers from a backup import.
+     * Existing stored keys are removed before imported keys are encrypted.
+     *
+     * @param keysByProvider Plaintext API keys grouped by provider ID.
+     * @return True if every provider key list was encrypted and saved.
+     */
+    @Synchronized
+    fun replaceAllKeys(keysByProvider: Map<String, List<String>>): Boolean {
+        val editor = prefs.edit()
+        for (key in prefs.all.keys) {
+            if (key.startsWith(KEY_PREFIX)) editor.remove(key)
+        }
+        editor.apply()
+        cache.clear()
+        rateLimitedKeys.clear()
+        invalidKeys.clear()
+
+        for ((providerId, keys) in keysByProvider) {
+            if (!saveKeys(providerId, keys.distinct())) return false
+        }
+        return true
+    }
+
+    /**
      * Returns the next usable key via round-robin, skipping invalid and rate-limited keys.
      *
      * @param providerId The UUID of the provider.

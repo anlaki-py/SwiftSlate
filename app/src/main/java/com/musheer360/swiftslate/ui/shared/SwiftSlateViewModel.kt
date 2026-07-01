@@ -19,6 +19,7 @@ import com.musheer360.swiftslate.model.Provider
 import com.musheer360.swiftslate.service.AccessibilityHelper
 import com.musheer360.swiftslate.service.AssistantService
 import com.musheer360.swiftslate.service.BatteryOptimizationHelper
+import com.musheer360.swiftslate.service.KeepAliveService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,8 +60,10 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
 
     fun refreshDashboard() {
         val app = getApplication<Application>()
+        val isAccessibilityEnabled = AccessibilityHelper.isServiceEnabled(app)
         _dashboardState.value = DashboardUiState(
-            isServiceEnabled = AccessibilityHelper.isServiceEnabled(app),
+            isServiceEnabled = isAccessibilityEnabled && AssistantService.isProcessingEnabled(app),
+            isAccessibilityEnabled = isAccessibilityEnabled,
             activeProviderName = providerManager.getActiveProvider()?.name,
             keyCount = providerManager.getActiveProvider()?.let { keyManager.getKeys(it.id).size } ?: 0,
             currentPrefix = commandManager.getTriggerPrefix(),
@@ -68,15 +71,16 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
         )
     }
 
-    fun stopService(): Boolean {
+    fun setServiceEnabled(isEnabled: Boolean) {
         val app = getApplication<Application>()
-        val stopped = AssistantService.stopIfRunning(app)
-        if (stopped) {
-            _dashboardState.value = _dashboardState.value.copy(isServiceEnabled = false)
+        AssistantService.setProcessingEnabled(app, isEnabled)
+        if (isEnabled) {
+            KeepAliveService.allowStart(app)
+            KeepAliveService.start(app)
         } else {
-            refreshDashboard()
+            KeepAliveService.stop(app)
         }
-        return stopped
+        refreshDashboard()
     }
 
     // -- Commands --
@@ -296,7 +300,12 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
 
     fun importCommands(json: String): BackupResult {
         val result = commandManager.importCommands(json)
-        if (result is BackupResult.Success) refreshCommands()
+        if (result is BackupResult.Success) {
+            refreshCommands()
+            refreshDashboard()
+            refreshKeys()
+            refreshSettings()
+        }
         return result
     }
 }

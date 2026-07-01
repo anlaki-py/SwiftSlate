@@ -9,17 +9,21 @@ import java.security.MessageDigest
 
 /**
  * Manages backup export and import for the full app state:
- * custom commands, built-in overrides/deletions, and the trigger prefix.
+ * custom commands, built-in overrides/deletions, providers, API keys, and app settings.
  *
- * Backup format (v2):
+ * Backup format (v3):
  * ```json
  * {
- *   "version": 2,
+ *   "version": 3,
  *   "signature": "SWIFTSATE_BACKUP",
  *   "prefix": "?",
  *   "custom_commands": [...],
  *   "overrides": { "fix": {...}, "translate": {...} },
  *   "deletions": ["casual"],
+ *   "providers": [...],
+ *   "active_provider_id": "...",
+ *   "api_keys": { "provider-id": ["..."] },
+ *   "settings": { "temperature": 0.7, "timeout": 10.0, "processing_enabled": true },
  *   "checksum": "<sha256>"
  * }
  * ```
@@ -32,9 +36,15 @@ class BackupManager(context: Context) {
         context.getSharedPreferences("command_overrides", Context.MODE_PRIVATE)
     private val settingsPrefs: SharedPreferences =
         context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val providerPrefs: SharedPreferences =
+        context.getSharedPreferences("providers_prefs", Context.MODE_PRIVATE)
+    private val assistantPrefs: SharedPreferences =
+        context.getSharedPreferences("assistant_service_prefs", Context.MODE_PRIVATE)
+    private val providerManager = ProviderManager(context)
+    private val keyManager = KeyManager(context)
 
     companion object {
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
         const val SIGNATURE = "SWIFTSATE_BACKUP"
         const val MIN_SUPPORTED_VERSION = 1
         const val MAX_CUSTOM_COMMANDS = 100
@@ -44,7 +54,7 @@ class BackupManager(context: Context) {
 
     /**
      * Exports the full app state as a JSON string.
-     * Includes custom commands, built-in overrides/deletions, prefix, version, signature, and checksum.
+     * Includes commands, providers, API keys, settings, version, signature, and checksum.
      */
     @Synchronized fun exportBackup(): String {
         val root = JSONObject()
@@ -59,6 +69,11 @@ class BackupManager(context: Context) {
 
         root.put("overrides", exportOverrides())
         root.put("deletions", exportDeletions())
+        root.put("providers", exportProviders())
+        val activeProviderId = providerPrefs.getString("active_provider_id", null)
+        root.put("active_provider_id", activeProviderId ?: JSONObject.NULL)
+        root.put("api_keys", exportApiKeys())
+        root.put("settings", exportSettings())
 
         val checksum = computeChecksum(root)
         root.put("checksum", checksum)
@@ -139,7 +154,18 @@ class BackupManager(context: Context) {
 
         importDeletions(root.optJSONArray("deletions"))
 
+        val providers = root.optJSONArray("providers")
+        if (providers != null) {
+            val providerValidation = validateProviders(providers)
+            if (providerValidation != null) return providerValidation
+        }
+
         commandPrefs.edit().putString("custom_commands", migrated.toString()).apply()
+
+        importProviders(providers, root.optString("active_provider_id", null))
+        val keyImportSucceeded = importApiKeys(root.optJSONObject("api_keys"))
+        if (!keyImportSucceeded) return BackupResult.Error("keystore_error")
+        importSettings(root.optJSONObject("settings"))
 
         return BackupResult.Success
     }
@@ -171,6 +197,27 @@ class BackupManager(context: Context) {
             result.put(key.removePrefix("deleted_"))
         }
         return result
+    }
+
+    private fun exportProviders(): JSONArray {
+        val raw = providerPrefs.getString("providers_json", "[]") ?: "[]"
+        return try { JSONArray(raw) } catch (_: Exception) { JSONArray() }
+    }
+
+    private fun exportApiKeys(): JSONObject {
+        val result = JSONObject()
+        for (provider in providerManager.getProviders()) {
+            result.put(provider.id, JSONArray(keyManager.getKeys(provider.id)))
+        }
+        return result
+    }
+
+    private fun exportSettings(): JSONObject {
+        return JSONObject().apply {
+            put("temperature", settingsPrefs.getFloat("temperature", 0.7f).toDouble())
+            put("timeout", settingsPrefs.getFloat("timeout", 10f).toDouble())
+            put("processing_enabled", assistantPrefs.getBoolean("processing_enabled", true))
+        }
     }
 
     /**
@@ -239,11 +286,16 @@ class BackupManager(context: Context) {
         backupPrefix: String,
         currentPrefix: String
     ): BackupResult.Error? {
-        if (overrides == null) return null
+        val editor = overridePrefs.edit()
+        for (key in overridePrefs.all.keys) {
+            if (key.startsWith("override_")) editor.remove(key)
+        }
+        if (overrides == null) {
+            editor.apply()
+            return null
+        }
 
         val knownKeys = CommandConstants.BUILT_IN_DEFINITIONS.map { it.key }.toSet() + setOf("translate")
-
-        val editor = overridePrefs.edit()
         val iter = overrides.keys()
         while (iter.hasNext()) {
             val builtInKey = iter.next()
@@ -305,8 +357,14 @@ class BackupManager(context: Context) {
     }
 
     private fun importDeletions(deletions: JSONArray?) {
-        if (deletions == null) return
         val editor = overridePrefs.edit()
+        for (key in overridePrefs.all.keys) {
+            if (key.startsWith("deleted_")) editor.remove(key)
+        }
+        if (deletions == null) {
+            editor.apply()
+            return
+        }
         for (i in 0 until deletions.length()) {
             val key = deletions.optString(i, "")
             if (key.isBlank()) continue
@@ -314,6 +372,63 @@ class BackupManager(context: Context) {
             editor.putBoolean("deleted_$key", true)
         }
         editor.apply()
+    }
+
+    private fun validateProviders(providers: JSONArray): BackupResult.Error? {
+        for (i in 0 until providers.length()) {
+            val provider = providers.optJSONObject(i) ?: return BackupResult.Error("invalid_format")
+            if (provider.optString("id").isBlank()) return BackupResult.Error("invalid_format")
+            if (provider.optString("name").isBlank()) return BackupResult.Error("invalid_format")
+            if (provider.optString("endpoint").isBlank()) return BackupResult.Error("invalid_format")
+        }
+        return null
+    }
+
+    private fun importProviders(providers: JSONArray?, activeProviderId: String?) {
+        if (providers == null) return
+        val editor = providerPrefs.edit().putString("providers_json", providers.toString())
+        if (activeProviderId.isNullOrBlank() || activeProviderId == "null") {
+            editor.remove("active_provider_id")
+        } else {
+            editor.putString("active_provider_id", activeProviderId)
+        }
+        editor.apply()
+    }
+
+    private fun importApiKeys(apiKeys: JSONObject?): Boolean {
+        if (apiKeys == null) return true
+        val keysByProvider = mutableMapOf<String, List<String>>()
+        val iter = apiKeys.keys()
+        while (iter.hasNext()) {
+            val providerId = iter.next()
+            val arr = apiKeys.optJSONArray(providerId) ?: continue
+            val keys = buildList {
+                for (i in 0 until arr.length()) {
+                    val key = arr.optString(i, "").trim()
+                    if (key.isNotBlank()) add(key)
+                }
+            }
+            keysByProvider[providerId] = keys
+        }
+        return keyManager.replaceAllKeys(keysByProvider)
+    }
+
+    private fun importSettings(settings: JSONObject?) {
+        if (settings == null) return
+        val editor = settingsPrefs.edit()
+        if (settings.has("temperature")) {
+            editor.putFloat("temperature", settings.optDouble("temperature", 0.7).toFloat())
+        }
+        if (settings.has("timeout")) {
+            editor.putFloat("timeout", settings.optDouble("timeout", 10.0).toFloat())
+        }
+        editor.apply()
+
+        if (settings.has("processing_enabled")) {
+            assistantPrefs.edit()
+                .putBoolean("processing_enabled", settings.optBoolean("processing_enabled", true))
+                .apply()
+        }
     }
 
     private fun computeChecksum(root: JSONObject): String {
@@ -324,6 +439,13 @@ class BackupManager(context: Context) {
         payload.put("custom_commands", root.optJSONArray("custom_commands"))
         payload.put("overrides", root.optJSONObject("overrides"))
         payload.put("deletions", root.optJSONArray("deletions"))
+
+        if (root.optInt("version") >= 3) {
+            payload.put("providers", root.optJSONArray("providers"))
+            payload.put("active_provider_id", root.opt("active_provider_id"))
+            payload.put("api_keys", root.optJSONObject("api_keys"))
+            payload.put("settings", root.optJSONObject("settings"))
+        }
 
         val bytes = payload.toString().toByteArray(Charsets.UTF_8)
         val digest = MessageDigest.getInstance("SHA-256").digest(bytes)

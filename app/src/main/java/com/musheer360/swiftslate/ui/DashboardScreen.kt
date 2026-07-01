@@ -104,7 +104,9 @@ fun DashboardScreen(vm: SwiftSlateViewModel) {
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (state.isServiceEnabled) {
-                            vm.stopService()
+                            vm.setServiceEnabled(false)
+                        } else if (state.isAccessibilityEnabled) {
+                            vm.setServiceEnabled(true)
                         } else {
                             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         }

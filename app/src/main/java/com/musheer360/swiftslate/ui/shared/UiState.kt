@@ -4,6 +4,7 @@ import com.musheer360.swiftslate.model.Command
 
 data class DashboardUiState(
     val isServiceEnabled: Boolean = false,
+    val isAccessibilityEnabled: Boolean = false,
     val activeProviderName: String? = null,
     val keyCount: Int = 0,
     val currentPrefix: String = "?",
