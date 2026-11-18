@@ -75,10 +75,6 @@ class ReleaseTests(unittest.TestCase):
             validate_badging(badging.replace('90000000', '1'), plan)
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class AssetGenerationTests(unittest.TestCase):
     def test_single_apk_metadata_checksums_and_summary(self):
         import hashlib
@@ -128,3 +124,31 @@ class AssetGenerationTests(unittest.TestCase):
                     release_assets.main()
             finally:
                 os.chdir(before)
+
+
+class PublishedVersionTests(unittest.TestCase):
+    def test_legacy_and_metadata_codes(self):
+        from unittest.mock import patch
+        from release import published_codes
+        import json
+        history = [
+            dict(draft=False, published_at='2026-07-01T15:12:58Z', assets=[]),
+            dict(draft=False, assets=[dict(name='release-metadata.json', url='https://api.github.com/asset')]),
+            dict(draft=True, assets=[]),
+        ]
+        with patch('release.run', return_value=json.dumps(dict(version_code=100000000))):
+            codes = published_codes(history)
+        self.assertEqual(max(codes), 100000000)
+        self.assertGreater(codes[1], CONFIG['historical_version_code'])
+
+    def test_invalid_published_code_blocks_release(self):
+        from unittest.mock import patch
+        from release import published_codes
+        history = [dict(draft=False, assets=[dict(name='release-metadata.json', url='https://api.github.com/asset')])]
+        with patch('release.run', return_value='{"version_code": "invalid"}'):
+            with self.assertRaises(ValueError):
+                published_codes(history)
+
+
+if __name__ == '__main__':
+    unittest.main()

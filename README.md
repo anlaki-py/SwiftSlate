@@ -32,6 +32,7 @@
 - [Privacy & Security](#privacy--security)
 - [Requirements](#requirements)
 - [Building from Source](#building-from-source)
+- [CI and manual releases](#ci-and-manual-releases)
 - [Known Limitations](#known-limitations)
 - [License & Credits](#license--credits)
 
