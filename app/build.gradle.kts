@@ -24,7 +24,7 @@ android {
         val ksPassword = System.getenv("KEYSTORE_PASSWORD")
         val ksAlias = System.getenv("KEY_ALIAS")
         val ksKeyPassword = System.getenv("KEY_PASSWORD")
-        if (ksFile != null && ksPassword != null && ksAlias != null && ksKeyPassword != null) {
+        if (!ksFile.isNullOrBlank() && !ksPassword.isNullOrBlank() && !ksAlias.isNullOrBlank() && !ksKeyPassword.isNullOrBlank()) {
             create("release") {
                 storeFile = file(ksFile)
                 storePassword = ksPassword
@@ -37,12 +37,11 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.findByName("debug")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.findByName("debug")
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

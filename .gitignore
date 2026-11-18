@@ -27,3 +27,8 @@ app/release
 release.keystore
 docs/
 
+# Manual release working files
+/dist/
+/release-plan.json
+/release-notes.md
+__pycache__/

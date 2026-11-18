@@ -241,3 +241,39 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 Maintained by [anlaki](https://anlaki.dev).  
 [Report an issue](https://github.com/anlaki-py/SwiftSlate/issues) · [Download latest release](https://github.com/anlaki-py/SwiftSlate/releases/latest)
+## CI and manual releases
+
+Pushes and pull requests to `main` and `beta` run **CI** with separate **Lint**, **Unit Tests**, and **Release automation checks** jobs. There are no path filters, so documentation PRs receive required checks too. `master` and `test` retain CI-only coverage during migration. Tags never publish automatically. **CI** also supports **Run workflow**. CI does not read signing secrets or publish APKs.
+
+`main` is the stable branch. `beta` is the development branch, migrated from SwiftSlate's former `test` branch. `master` and `test` are retained, not deleted or reset. The initial branch comparison found both at `517eaf8`; no unmerged development commits existed at cutover.
+
+To publish, the repository owner must:
+
+1. Update [CHANGELOG.md](CHANGELOG.md). Beta requires real notes under `## [Unreleased]`; stable requires the exact computed version section, for example `## [1.0.49]`. Update the date to the intended release date. Empty sections fail. Stable tags alone determine the next patch; beta builds increment `-beta.1`, `-beta.2`, and so on.
+2. Open **Actions**, choose **Release Beta** or **Release Stable**, and select **Run workflow**. Select `beta` for beta or `main` for stable. Other branches and non-owner actors fail before checkout/build. Workflows must exist on the default branch for the dispatch controls to appear.
+3. Wait for fresh lint/tests, signed `assembleRelease`, APK verification, and publication. Both channels share a release queue. Download the universal APK, `checksums-sha256.txt`, and `release-metadata.json` from [GitHub Releases](https://github.com/anlaki-py/SwiftSlate/releases). Beta releases are marked prerelease.
+
+Required repository Actions secrets are `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD`, using SwiftSlate's existing keystore. `GRADLE_CACHE_ENCRYPTION_KEY` is optional and only used by manual releases. These five secret names were present during migration; their values were not read. The release certificate is pinned to the published `v1.0.48` APK in [.github/scripts/release-config.json](.github/scripts/release-config.json). Replacing the keystore with a different certificate blocks publication.
+
+Only the publication job receives `contents: write`; repository/organization policy and branch/tag rules must permit its `GITHUB_TOKEN` to create new tags and releases. CI and release build jobs use read permission. If publication fails after tag creation, inspect the retained tag, any draft release, and the `release-assets` artifact before retrying. The workflow never overwrites an existing tag/release, and never deletes historical ones. Reports and validated artifacts are retained for 14 days. Failure reports replace automatic bug-issue creation, avoiding duplicate notifications.
+
+Beta and stable both use package `swiftslate.anlaki.dev` and the same release certificate. A later stable release can update an installed beta because its version code exceeds prior published codes. Version codes use seconds since 2024-01-01 UTC, increased above existing release metadata when necessary, with a conservative bound for legacy minute-based releases. Android rejects downgrades and certificate changes. Previously distributed `.debug` beta APKs are separate applications; export a backup and install the signed release package to migrate, then restore supported settings. Local debug builds use the normal debug certificate and `.debug` package.
+
+### Repository cutover
+
+For a fresh migration, first commit these workflow changes on `master` to disable its old publisher. Then create the new branches from the appropriate history, preserving old branches:
+
+```bash
+git fetch origin --no-tags
+git rev-list --left-right --count origin/master...origin/test
+# Run these creation commands only if the new remote branches do not exist.
+git push origin origin/master:refs/heads/main
+git push origin origin/test:refs/heads/beta
+gh repo edit anlaki-py/SwiftSlate --default-branch main
+```
+
+If `test` differs, merge the migration changes into its development history before creating `beta`. Also merge the publisher removal into retained `test`; otherwise pushes to that branch could still run its old publisher. Never force-push or delete historical branches/tags. On this migration, the histories matched, allowing one migration commit to advance all four branches.
+
+In **Settings → Rules → Rulesets** or **Settings → Branches**, protect `main` and `beta` and require **Lint**, **Unit Tests**, and **Release automation checks**. Review merge permissions and tag rules without blocking the manual publisher's token. Make `main` the default branch and verify the Actions controls are visible. Old `master`/`test` rules may remain until the owner explicitly retires those branches.
+
+Verification runs on GitHub Actions only. The automation checks exercise version selection against fetched tags, legacy beta names, collisions, version code bounds, changelog parsing, APK identity checks, and `actionlint`. No local Gradle build is needed. After cutover, test a push and a PR for CI behavior. Live release dispatch is a separate owner decision; migration does not publish a release.

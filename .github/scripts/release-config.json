@@ -1,0 +1,8 @@
+{
+  "package_name": "swiftslate.anlaki.dev",
+  "min_sdk": 23,
+  "target_sdk": 36,
+  "historical_version_code": 1314188,
+  "certificate_sha256": "dc4e2fb73678637f443600a76ce484b52f197a5c8448993e5f047da339795511",
+  "certificate_source": "https://github.com/anlaki-py/SwiftSlate/releases/tag/v1.0.48"
+}

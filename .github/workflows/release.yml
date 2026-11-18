@@ -1,0 +1,127 @@
+name: Manual release implementation
+on:
+  workflow_call:
+    inputs:
+      channel:
+        type: string
+        required: true
+    secrets:
+      KEYSTORE_BASE64:
+        required: true
+      KEYSTORE_PASSWORD:
+        required: true
+      KEY_ALIAS:
+        required: true
+      KEY_PASSWORD:
+        required: true
+      GRADLE_CACHE_ENCRYPTION_KEY:
+        required: false
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Verify and build signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Require manual owner dispatch on release branch
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          CHANNEL: ${{ inputs.channel }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          [[ "$EVENT" == workflow_dispatch && "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]] || { echo '::error::Owner manual dispatch required'; exit 1; }
+          case "$CHANNEL:$REF" in
+            beta:refs/heads/beta|stable:refs/heads/main) ;;
+            *) echo '::error::Release channel does not match selected branch'; exit 1 ;;
+          esac
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate version and require changelog
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ inputs.channel }}
+        run: python3 .github/scripts/release.py "$CHANNEL"
+      - uses: ./.github/actions/android-setup
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
+      - name: Lint
+        run: ./gradlew lint --parallel --build-cache --no-daemon
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --parallel --build-cache --no-daemon
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            [[ -n "${!key}" ]] || { echo "::error::Missing signing secret $key"; exit 1; }
+          done
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          test -s "$RUNNER_TEMP/release.keystore"
+      - name: Build signed universal release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          VERSION_NAME: ${{ steps.plan.outputs.version_name }}
+          VERSION_CODE: ${{ steps.plan.outputs.version_code }}
+        run: ./gradlew assembleRelease --no-daemon --no-configuration-cache -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+      - name: Verify package, signature and release assets
+        run: python3 .github/scripts/release_assets.py
+      - name: Save validated release assets
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: release-assets
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: release-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+            release-plan.json
+            release-notes.md
+          retention-days: 14
+  publish:
+    name: Publish validated release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-assets
+          path: dist/
+      - name: Create new tag and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/publish_release.py
+      - name: Publication failure diagnostics
+        if: failure()
+        run: |
+          echo '::error::Publication failed. Inspect this run and any draft/tag before retrying; historical refs are never overwritten.'
+          echo 'Publication failed. Validated assets are retained in the release-assets artifact. Inspect any tag/draft before retrying.' >> "$GITHUB_STEP_SUMMARY"

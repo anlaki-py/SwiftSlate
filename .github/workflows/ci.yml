@@ -1,0 +1,87 @@
+name: CI
+on:
+  push:
+    branches: [main, beta, master, test]
+  pull_request:
+    branches: [main, beta, master, test]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  guard:
+    name: CI branch guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Guard manual CI branch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          case "$REF" in
+            refs/heads/main|refs/heads/beta|refs/heads/master|refs/heads/test) ;;
+            *) echo '::error::Select main, beta, master, or test for CI'; exit 1 ;;
+          esac
+  lint:
+    needs: guard
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/android-setup
+      - run: ./gradlew lint --parallel --build-cache --no-daemon
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: lint-results
+          path: app/build/reports/lint-results-*
+          retention-days: 14
+  test:
+    needs: guard
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/android-setup
+      - run: ./gradlew testDebugUnitTest --parallel --build-cache --no-daemon
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: unit-test-results
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 14
+  release-checks:
+    needs: guard
+    name: Release automation checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: Check workflows with actionlint
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$archive" -o "$RUNNER_TEMP/$archive"
+          curl --fail --silent --show-error --location "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o "$RUNNER_TEMP/checksums.txt"
+          cd "$RUNNER_TEMP"
+          grep "  $archive$" checksums.txt | sha256sum --check
+          tar -xzf "$archive" actionlint
+          cd "$GITHUB_WORKSPACE"
+          "$RUNNER_TEMP/actionlint" -color

@@ -1,0 +1,42 @@
+name: Release Stable
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+# Shared across both channels, including version planning and publication.
+concurrency:
+  group: swiftslate-manual-release
+  cancel-in-progress: false
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require main branch and repository owner
+        env:
+          REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [[ "$REF" != refs/heads/main ]]; then
+            echo '::error::Release Stable must run from refs/heads/main'
+            exit 1
+          fi
+          if [[ "$ACTOR" != "$OWNER" || "$TRIGGERING_ACTOR" != "$OWNER" ]]; then
+            echo '::error::Only the repository owner may launch or rerun a release'
+            exit 1
+          fi
+  release:
+    needs: guard
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      channel: stable
+    secrets:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      GRADLE_CACHE_ENCRYPTION_KEY: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
