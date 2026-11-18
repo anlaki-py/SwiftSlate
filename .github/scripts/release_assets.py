@@ -11,10 +11,19 @@ from release import CONFIG, run
 
 
 def certificate(output):
-    fingerprints = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)$', output, re.MULTILINE)
-    if len(fingerprints) != 1 or fingerprints[0].lower() != CONFIG['certificate_sha256']:
-        raise ValueError('APK certificate differs from the published SwiftSlate v1.0.48 identity')
-    return fingerprints[0].lower()
+    # Build Tools 37 labels scheme-specific signers as "V2 Signer:"; older tools
+    # use "Signer #1". Every reported APK signer must retain the pinned identity.
+    lines = [line.strip() for line in output.splitlines()
+             if 'Signer' in line and 'certificate SHA-256 digest:' in line]
+    pattern = re.compile(r'(?:Signer #\d+|V\d+(?:\.\d+)? Signer(?: #\d+)?:) certificate SHA-256 digest: ([0-9a-fA-F]{64})')
+    matches = [pattern.fullmatch(line) for line in lines]
+    fingerprints = {match[1].lower() for match in matches if match}
+    counts = re.findall(r'^Number of signers: (\d+)$', output, re.MULTILINE)
+    if (not lines or any(match is None for match in matches)
+            or any(int(count) != 1 for count in counts)
+            or fingerprints != {CONFIG['certificate_sha256']}):
+        raise ValueError(f'Expected certificate {CONFIG["certificate_sha256"]}; apksigner reported {sorted(fingerprints) or "no recognized signer digest"}. See apk-signature-verification.txt.')
+    return CONFIG['certificate_sha256']
 
 
 def validate_badging(badging, plan):
@@ -44,7 +53,9 @@ def main():
                       key=lambda p: tuple(map(int, p.name.split('.'))))
     if not versions:
         raise ValueError('No stable Android SDK build tools installed')
-    fingerprint = certificate(run(str(versions[-1] / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)))
+    verification = run(str(versions[-1] / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk))
+    Path('apk-signature-verification.txt').write_text(verification + '\n')
+    fingerprint = certificate(verification)
     validate_badging(run(str(versions[-1] / 'aapt'), 'dump', 'badging', str(apk)), plan)
     dist = Path('dist')
     dist.mkdir(exist_ok=True)

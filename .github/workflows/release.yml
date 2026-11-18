@@ -57,6 +57,7 @@ jobs:
         run: ./gradlew testDebugUnitTest --parallel --build-cache --no-daemon
       - name: Decode signing keystore
         env:
+          GH_TOKEN: ${{ github.token }}
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -69,6 +70,9 @@ jobs:
           umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           test -s "$RUNNER_TEMP/release.keystore"
+          keytool -exportcert -keystore "$RUNNER_TEMP/release.keystore" -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" -file "$RUNNER_TEMP/release-certificate.der"
+          gh release download v1.0.48 --repo "$GITHUB_REPOSITORY" --pattern SwiftSlate-v1.0.48.apk --dir "$RUNNER_TEMP/prior-release"
+          python3 .github/scripts/verify_signing_identity.py "$RUNNER_TEMP/release-certificate.der" --prior-apk "$RUNNER_TEMP/prior-release/SwiftSlate-v1.0.48.apk"
       - name: Build signed universal release APK
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
@@ -80,7 +84,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon --no-configuration-cache -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
       - name: Remove keystore
         if: always()
-        run: rm -f "$RUNNER_TEMP/release.keystore"
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/release-certificate.der"
       - name: Verify package, signature and release assets
         run: python3 .github/scripts/release_assets.py
       - name: Save validated release assets
@@ -100,6 +104,8 @@ jobs:
             app/build/test-results/
             release-plan.json
             release-notes.md
+            apk-signature-verification.txt
+            prior-signature-verification.txt
           retention-days: 14
   publish:
     name: Publish validated release

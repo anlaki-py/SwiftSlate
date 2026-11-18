@@ -150,5 +150,36 @@ class PublishedVersionTests(unittest.TestCase):
                 published_codes(history)
 
 
+class AndroidSignerFormatTests(unittest.TestCase):
+    def test_current_and_legacy_signer_formats_preserve_the_same_identity(self):
+        digest = CONFIG['certificate_sha256']
+        for prefix in ['Signer #1', 'V2 Signer:', 'V3 Signer:', 'V3.1 Signer:']:
+            output = f'Verifies\nNumber of signers: 1\n{prefix} certificate SHA-256 digest: {digest}\n'
+            self.assertEqual(digest, certificate(output))
+        both = f'V2 Signer: certificate SHA-256 digest: {digest}\nV3 Signer: certificate SHA-256 digest: {digest}'
+        self.assertEqual(digest, certificate(both))
+
+    def test_different_or_unrecognized_additional_signers_fail_closed(self):
+        digest = CONFIG['certificate_sha256']
+        valid = f'V2 Signer: certificate SHA-256 digest: {digest}\n'
+        for extra in [f'V3 Signer: certificate SHA-256 digest: {"0" * 64}',
+                      f'Unknown Signer: certificate SHA-256 digest: {digest}', 'Number of signers: 2']:
+            with self.assertRaises(ValueError):
+                certificate(valid + extra)
+
+
+class KeystoreIdentityTests(unittest.TestCase):
+    def test_identity_matches_and_empty_or_different_certificates_fail(self):
+        import hashlib
+        from unittest.mock import patch
+        from verify_signing_identity import verify_certificate
+        with patch.dict(CONFIG, certificate_sha256=hashlib.sha256(b'public-certificate').hexdigest()):
+            self.assertEqual(CONFIG['certificate_sha256'], verify_certificate(b'public-certificate'))
+            with self.assertRaises(ValueError):
+                verify_certificate(b'other-public-certificate')
+            with self.assertRaises(ValueError):
+                verify_certificate(b'')
+
+
 if __name__ == '__main__':
     unittest.main()
