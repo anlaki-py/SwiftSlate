@@ -73,6 +73,8 @@ jobs:
           umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           test -s "$RUNNER_TEMP/release.keystore"
+          keytool -exportcert -keystore "$RUNNER_TEMP/release.keystore" -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" -file "$RUNNER_TEMP/release-certificate.der"
+          python3 .github/scripts/verify_signing_identity.py "$RUNNER_TEMP/release-certificate.der"
       - name: Build signed universal release APK
         env:
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
@@ -88,7 +90,7 @@ jobs:
           ./gradlew assembleRelease --no-daemon --no-configuration-cache -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
       - name: Remove keystore
         if: always()
-        run: rm -f "$RUNNER_TEMP/release.keystore"
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/release-certificate.der"
       - name: Verify package, signature and release assets
         run: python3 .github/scripts/release_assets.py
       - name: Save validated release assets
@@ -108,6 +110,7 @@ jobs:
             app/build/test-results/
             release-plan.json
             release-notes.md
+            apk-signature-verification.txt
           retention-days: 14
   publish:
     name: Publish validated release

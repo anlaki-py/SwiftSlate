@@ -150,5 +150,18 @@ class PublishedVersionTests(unittest.TestCase):
                 published_codes(history)
 
 
+class KeystoreIdentityTests(unittest.TestCase):
+    def test_identity_matches_and_empty_or_different_certificates_fail(self):
+        import hashlib
+        from unittest.mock import patch
+        from verify_signing_identity import verify_certificate
+        with patch.dict(CONFIG, certificate_sha256=hashlib.sha256(b'public-certificate').hexdigest()):
+            self.assertEqual(CONFIG['certificate_sha256'], verify_certificate(b'public-certificate'))
+            with self.assertRaises(ValueError):
+                verify_certificate(b'other-public-certificate')
+            with self.assertRaises(ValueError):
+                verify_certificate(b'')
+
+
 if __name__ == '__main__':
     unittest.main()

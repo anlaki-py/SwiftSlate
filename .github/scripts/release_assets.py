@@ -13,7 +13,7 @@ from release import CONFIG, run
 def certificate(output):
     fingerprints = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)$', output, re.MULTILINE)
     if len(fingerprints) != 1 or fingerprints[0].lower() != CONFIG['certificate_sha256']:
-        raise ValueError('APK certificate differs from the published SwiftSlate v1.0.48 identity')
+        raise ValueError(f'Expected certificate {CONFIG["certificate_sha256"]}; apksigner reported {fingerprints or "no recognized signer digest"}. See apk-signature-verification.txt.')
     return fingerprints[0].lower()
 
 
@@ -44,7 +44,9 @@ def main():
                       key=lambda p: tuple(map(int, p.name.split('.'))))
     if not versions:
         raise ValueError('No stable Android SDK build tools installed')
-    fingerprint = certificate(run(str(versions[-1] / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)))
+    verification = run(str(versions[-1] / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk))
+    Path('apk-signature-verification.txt').write_text(verification + '\n')
+    fingerprint = certificate(verification)
     validate_badging(run(str(versions[-1] / 'aapt'), 'dump', 'badging', str(apk)), plan)
     dist = Path('dist')
     dist.mkdir(exist_ok=True)
