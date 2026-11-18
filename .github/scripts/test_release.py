@@ -132,8 +132,8 @@ class PublishedVersionTests(unittest.TestCase):
         from release import published_codes
         import json
         history = [
-            dict(draft=False, published_at='2026-07-01T15:12:58Z', assets=[]),
-            dict(draft=False, assets=[dict(name='release-metadata.json', url='https://api.github.com/asset')]),
+            dict(tag_name='v1.0.48', draft=False, published_at='2026-07-01T15:12:58Z', assets=[]),
+            dict(tag_name='v1.0.49', draft=False, assets=[dict(name='release-metadata.json', url='https://api.github.com/asset')]),
             dict(draft=True, assets=[]),
         ]
         with patch('release.run', return_value=json.dumps(dict(version_code=100000000))):
@@ -144,7 +144,7 @@ class PublishedVersionTests(unittest.TestCase):
     def test_invalid_published_code_blocks_release(self):
         from unittest.mock import patch
         from release import published_codes
-        history = [dict(draft=False, assets=[dict(name='release-metadata.json', url='https://api.github.com/asset')])]
+        history = [dict(tag_name='v1.0.49', draft=False, assets=[dict(name='release-metadata.json', url='https://api.github.com/asset')])]
         with patch('release.run', return_value='{"version_code": "invalid"}'):
             with self.assertRaises(ValueError):
                 published_codes(history)
