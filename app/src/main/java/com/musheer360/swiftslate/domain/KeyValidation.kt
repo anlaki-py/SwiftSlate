@@ -45,14 +45,15 @@ object KeyValidation {
         endpoint: String,
         existingKeys: List<String>,
         client: OpenAICompatibleClient,
-        fallbackErrorMessage: String
+        fallbackErrorMessage: String,
+        validateRemote: suspend (String, String) -> Result<*> = client::validateKey
     ): KeyValidationResult {
         // Duplicate guard — avoid hitting the network for a key we already have
         if (existingKeys.contains(key)) {
             return KeyValidationResult.Duplicate
         }
 
-        val result = client.validateKey(key, endpoint)
+        val result = validateRemote(key, endpoint)
 
         return if (result.isSuccess) {
             KeyValidationResult.Valid

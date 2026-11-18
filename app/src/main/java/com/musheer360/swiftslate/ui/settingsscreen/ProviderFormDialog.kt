@@ -49,7 +49,7 @@ internal fun ProviderFormDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!isEditing) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(androidx.compose.ui.res.dimensionResource(R.dimen.google_provider_chip_gap))) {
                         FilterChip(selected = protocol == ProviderProtocol.OPENAI_COMPATIBLE,
                             onClick = { protocol = ProviderProtocol.OPENAI_COMPATIBLE },
                             label = { Text(stringResource(R.string.ai_protocol_openai)) })

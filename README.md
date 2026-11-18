@@ -191,7 +191,7 @@ Use the **Settings → Backup & Restore** section to:
 - **Export** all custom commands (and overrides) to a JSON file.
 - **Import** a previously exported file — replacing existing custom commands after confirmation.
 
-API keys and provider configurations are **not** included in backups for security reasons.
+Manual backups include provider settings and API keys. Keep backup files private. Google account login tokens are excluded.
 
 ---
 

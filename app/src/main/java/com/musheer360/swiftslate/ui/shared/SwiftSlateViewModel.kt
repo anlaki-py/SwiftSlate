@@ -6,7 +6,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.musheer360.swiftslate.SwiftSlateApp
-import com.musheer360.swiftslate.api.OpenAICompatibleClient
+import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.data.BackupResult
 import com.musheer360.swiftslate.data.CommandManager
 import com.musheer360.swiftslate.data.KeyManager
@@ -173,57 +173,29 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
 
     fun addKey(key: String) {
         val providerId = _keysState.value.providerId ?: return
+        val provider = providerManager.getProviders().firstOrNull { it.id == providerId } ?: return
         val trimmedKey = key.trim()
         val existingKeys = keyManager.getKeys(providerId)
-
         viewModelScope.launch {
-            val native = providerManager.getProviders().firstOrNull { it.id == providerId }?.protocol ==
-                ProviderProtocol.GEMINI_API_KEY
-            val result = if (native) {
-                if (trimmedKey in existingKeys) KeyValidationResult.Duplicate
-                else services.gemini.models(trimmedKey, _keysState.value.providerEndpoint).fold(
-                    { KeyValidationResult.Valid },
-                    { KeyValidationResult.Invalid(
-                        ErrorMessageMapper.describe(getApplication(), it)) })
-            } else KeyValidation.validate(
+            val result = KeyValidation.validate(
                 key = trimmedKey,
-                endpoint = _keysState.value.providerEndpoint,
+                endpoint = provider.endpoint,
                 existingKeys = existingKeys,
                 client = openAIClient,
-                fallbackErrorMessage = "Validation failed"
+                fallbackErrorMessage = getApplication<Application>().getString(R.string.keys_validation_failed),
+                validateRemote = if (provider.protocol == ProviderProtocol.GEMINI_API_KEY)
+                    services.gemini::models else openAIClient::validateKey
             )
-            when (result) {
-                is KeyValidationResult.Duplicate -> {
-                    _keysState.value = _keysState.value.copy(
-                        isTesting = false,
-                        testResult = "Key already added",
-                        testSuccess = false
-                    )
-                }
-                is KeyValidationResult.Invalid -> {
-                    _keysState.value = _keysState.value.copy(
-                        isTesting = false,
-                        testResult = result.cause?.let { ErrorMessageMapper.describe(getApplication(), it) } ?: result.message,
-                        testSuccess = false
-                    )
-                }
-                is KeyValidationResult.Valid -> {
-                    if (!keyManager.addKey(providerId, trimmedKey)) {
-                        _keysState.value = _keysState.value.copy(
-                            isTesting = false,
-                            testResult = "Keystore error",
-                            testSuccess = false
-                        )
-                        return@launch
-                    }
-                    _keysState.value = _keysState.value.copy(
-                        isTesting = false,
-                        testResult = "Key added successfully",
-                        testSuccess = true,
-                        keys = keyManager.getKeys(providerId)
-                    )
-                }
+            val saved = result is KeyValidationResult.Valid && withContext(Dispatchers.IO) { keyManager.addKey(providerId, trimmedKey) }
+            if (_keysState.value.providerId != providerId) return@launch
+            val message = when (result) {
+                KeyValidationResult.Duplicate -> getApplication<Application>().getString(R.string.keys_already_added)
+                is KeyValidationResult.Invalid -> result.cause?.let { ErrorMessageMapper.describe(getApplication(), it) } ?: result.message
+                KeyValidationResult.Valid -> getApplication<Application>().getString(
+                    if (saved) R.string.keys_valid_added else R.string.keys_keystore_error)
             }
+            _keysState.value = _keysState.value.copy(isTesting = false, testResult = message,
+                testSuccess = saved, keys = keyManager.getKeys(providerId))
         }
     }
 
@@ -250,9 +222,6 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
         _settingsState.value = SettingsUiState(
             providers = providers.map { SettingsProviderItem(it.id, it.name, it.endpoint, it.selectedModel, it.protocol) },
             activeProviderId = active?.id,
-            activeProviderName = active?.name,
-            activeProviderEndpoint = active?.endpoint ?: "",
-            activeProviderModel = active?.selectedModel ?: "",
             temperature = prefs.getFloat("temperature", 0.7f),
             timeout = prefs.getFloat("timeout", 10f),
             prefix = commandManager.getTriggerPrefix()

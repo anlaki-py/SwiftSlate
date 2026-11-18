@@ -81,7 +81,7 @@ class GoogleAccountRepository internal constructor(
                     return block(credential)
                 } catch (error: GoogleException) {
                     if (error.status != 401) throw error
-                    credential = fresh(candidate.id, force = true)
+                    credential = fresh(candidate.id, force = true, rejectedAccessToken = credential.accessToken)
                     return block(credential)
                 }
             } catch (error: GoogleException) {
@@ -110,12 +110,13 @@ class GoogleAccountRepository internal constructor(
         })
     }
 
-    private suspend fun fresh(id: String, force: Boolean = false): GoogleCredential =
+    private suspend fun fresh(id: String, force: Boolean = false, rejectedAccessToken: String? = null): GoogleCredential =
         refreshLocks.getOrPut(id) { Mutex() }.withLock {
             val current = withContext(Dispatchers.IO) { mutex.withLock {
                 loadLocked()
                 credentials.orEmpty().firstOrNull { it.account.id == id }
             } } ?: throw GoogleException(GoogleFailure.NO_ACCOUNTS)
+            if (force && rejectedAccessToken != null && current.accessToken != rejectedAccessToken) return@withLock current
             if (!force && current.account.needsLogin) throw GoogleException(GoogleFailure.LOGIN_REQUIRED)
             if (!force && current.expiresAt > System.currentTimeMillis() + 60_000) return@withLock current
             try {

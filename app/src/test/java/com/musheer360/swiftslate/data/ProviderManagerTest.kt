@@ -1,5 +1,6 @@
 package com.musheer360.swiftslate.data
 
+import kotlinx.coroutines.async
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.musheer360.swiftslate.model.ProviderProtocol
@@ -35,5 +36,16 @@ class ProviderManagerTest {
         val restored = ProviderManager(context).getProviders().single()
         assertEquals(ProviderProtocol.GEMINI_API_KEY, restored.protocol)
         assertEquals("gemini-flash", restored.selectedModel)
+    }
+
+    @Test fun concurrentProviderWritesDoNotLoseOtherProviderSettings() = kotlinx.coroutines.runBlocking {
+        kotlinx.coroutines.coroutineScope {
+            (1..20).map { index ->
+                async(kotlinx.coroutines.Dispatchers.Default) {
+                    ProviderManager(context).addProvider("Provider $index", "https://example.com/v1")
+                }
+            }.forEach { it.await() }
+        }
+        assertEquals(20, ProviderManager(context).getProviders().size)
     }
 }

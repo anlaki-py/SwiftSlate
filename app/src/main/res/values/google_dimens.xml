@@ -2,4 +2,5 @@
 <resources>
     <dimen name="google_account_gap">12dp</dimen>
     <dimen name="google_screen_padding">20dp</dimen>
+    <dimen name="google_provider_chip_gap">8dp</dimen>
 </resources>

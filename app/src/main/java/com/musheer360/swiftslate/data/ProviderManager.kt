@@ -23,6 +23,7 @@ class ProviderManager(context: Context) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private companion object {
+        val PROVIDER_LOCK = Any()
         const val PREFS_NAME = "providers_prefs"
         const val KEY_PROVIDERS = "providers_json"
         const val KEY_ACTIVE_ID = "active_provider_id"
@@ -70,21 +71,23 @@ class ProviderManager(context: Context) {
      * @return The newly created [Provider].
      */
     fun addProvider(name: String, endpoint: String, protocol: ProviderProtocol = ProviderProtocol.OPENAI_COMPATIBLE): Provider {
-        val provider = Provider(
-            id = UUID.randomUUID().toString(),
-            name = name.trim(),
-            endpoint = endpoint.trim().trimEnd('/'),
-            protocol = protocol
-        )
-        val providers = getProviders().toMutableList()
-        providers.add(provider)
-        saveProviders(providers)
+        return synchronized(PROVIDER_LOCK) {
+            val provider = Provider(
+                id = UUID.randomUUID().toString(),
+                name = name.trim(),
+                endpoint = endpoint.trim().trimEnd('/'),
+                protocol = protocol
+            )
+            val providers = getProviders().toMutableList()
+            providers.add(provider)
+            saveProviders(providers)
 
-        // Auto-activate if this is the first provider
-        if (providers.size == 1) {
-            setActiveProvider(provider.id)
+            // Auto-activate if this is the first provider
+            if (providers.size == 1) {
+                setActiveProvider(provider.id)
+            }
+            return@synchronized provider
         }
-        return provider
     }
 
     /**
@@ -102,18 +105,20 @@ class ProviderManager(context: Context) {
         endpoint: String? = null,
         selectedModel: String? = null
     ): Boolean {
-        val providers = getProviders().toMutableList()
-        val index = providers.indexOfFirst { it.id == id }
-        if (index == -1) return false
+        return synchronized(PROVIDER_LOCK) {
+            val providers = getProviders().toMutableList()
+            val index = providers.indexOfFirst { it.id == id }
+            if (index == -1) return@synchronized false
 
-        val current = providers[index]
-        providers[index] = current.copy(
-            name = name?.trim() ?: current.name,
-            endpoint = endpoint?.trim()?.trimEnd('/') ?: current.endpoint,
-            selectedModel = selectedModel ?: current.selectedModel
-        )
-        saveProviders(providers)
-        return true
+            val current = providers[index]
+            providers[index] = current.copy(
+                name = name?.trim() ?: current.name,
+                endpoint = endpoint?.trim()?.trimEnd('/') ?: current.endpoint,
+                selectedModel = selectedModel ?: current.selectedModel
+            )
+            saveProviders(providers)
+            return@synchronized true
+        }
     }
 
     /**
@@ -123,18 +128,20 @@ class ProviderManager(context: Context) {
      * @return True if the provider was found and removed.
      */
     fun removeProvider(id: String): Boolean {
-        val providers = getProviders().toMutableList()
-        val removed = providers.removeAll { it.id == id }
-        if (!removed) return false
+        return synchronized(PROVIDER_LOCK) {
+            val providers = getProviders().toMutableList()
+            val removed = providers.removeAll { it.id == id }
+            if (!removed) return@synchronized false
 
-        saveProviders(providers)
+            saveProviders(providers)
 
-        // Clear active if deleted, auto-select next if available
-        if (prefs.getString(KEY_ACTIVE_ID, null) == id) {
-            val nextId = providers.firstOrNull()?.id
-            prefs.edit().putString(KEY_ACTIVE_ID, nextId).apply()
+            // Clear active if deleted, auto-select next if available
+            if (prefs.getString(KEY_ACTIVE_ID, null) == id) {
+                val nextId = providers.firstOrNull()?.id
+                prefs.edit().putString(KEY_ACTIVE_ID, nextId).apply()
+            }
+            return@synchronized true
         }
-        return true
     }
 
     /**

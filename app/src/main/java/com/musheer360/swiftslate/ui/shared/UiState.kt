@@ -33,9 +33,6 @@ data class KeysUiState(
 data class SettingsUiState(
     val providers: List<SettingsProviderItem> = emptyList(),
     val activeProviderId: String? = null,
-    val activeProviderName: String? = null,
-    val activeProviderEndpoint: String = "",
-    val activeProviderModel: String = "",
     val temperature: Float = 0.7f,
     val timeout: Float = 10f,
     val prefix: String = "?"
