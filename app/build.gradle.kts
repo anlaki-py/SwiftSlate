@@ -84,8 +84,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.squareup.okhttp3:okhttp:5.5.1")
-    testImplementation("com.squareup.okhttp3:mockwebserver3:5.5.1")
+    implementation("com.squareup.okhttp3:okhttp:5.3.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver3:5.3.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
