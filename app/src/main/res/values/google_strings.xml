@@ -38,7 +38,7 @@
     <string name="google_error_storage">Saved Google accounts could not be read or updated securely. Restart the app and try again. Saved credentials have not been overwritten.</string>
     <string name="google_error_response">Google returned an incomplete or unsupported response. Refresh the model list or try again.</string>
     <string name="google_error_model">This account cannot use the selected model. Refresh the list and choose another Gemini model.</string>
-    <string name="google_error_server">Google is temporarily unavailable. Try again later.</string>
+    <string name="google_error_server">The AI service is temporarily unavailable. Try again later.</string>
     <string name="ai_error_blocked">The model refused or filtered this request. Try rephrasing it.</string>
     <string name="ai_error_truncated">The response was cut short. Shorten the input or choose another model. Your original text was preserved.</string>
     <string name="ai_error_empty">The model returned no usable text. Try another model.</string>

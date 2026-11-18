@@ -38,7 +38,7 @@
     <string name="google_error_storage">无法安全读取或更新已保存的 Google 账号。请重启应用后重试。保存的凭据未被覆盖。</string>
     <string name="google_error_response">Google 返回了不完整或不受支持的响应。请刷新模型列表或重试。</string>
     <string name="google_error_model">此账号无法使用所选模型。请刷新列表并选择其他 Gemini 模型。</string>
-    <string name="google_error_server">Google 暂时不可用。请稍后重试。</string>
+    <string name="google_error_server">AI 服务暂时不可用。请稍后重试。</string>
     <string name="ai_error_blocked">模型拒绝或过滤了此请求。请尝试换一种表述。</string>
     <string name="ai_error_truncated">响应被截断。请缩短输入或选择其他模型。原文已保留。</string>
     <string name="ai_error_empty">模型未返回可用文本。请尝试其他模型。</string>

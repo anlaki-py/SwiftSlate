@@ -38,7 +38,7 @@
     <string name="google_error_storage">Impossible de lire ou modifier les comptes Google de manière sécurisée. Redémarrez et réessayez. Les identifiants enregistrés n’ont pas été remplacés.</string>
     <string name="google_error_response">Google a renvoyé une réponse incomplète ou non prise en charge. Actualisez les modèles ou réessayez.</string>
     <string name="google_error_model">Ce compte ne peut pas utiliser ce modèle. Actualisez la liste et choisissez un autre modèle Gemini.</string>
-    <string name="google_error_server">Google est temporairement indisponible. Réessayez plus tard.</string>
+    <string name="google_error_server">Le service IA est temporairement indisponible. Réessayez plus tard.</string>
     <string name="ai_error_blocked">Le modèle a refusé ou filtré cette requête. Essayez de la reformuler.</string>
     <string name="ai_error_truncated">La réponse a été tronquée. Raccourcissez le texte ou changez de modèle. Votre texte original est conservé.</string>
     <string name="ai_error_empty">Le modèle n’a renvoyé aucun texte utilisable. Essayez un autre modèle.</string>

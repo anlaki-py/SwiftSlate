@@ -57,7 +57,9 @@ internal class GoogleAccountApi(
         val response = execute(builder("streamGenerateContent?alt=sse", credential.accessToken)
             .header("Accept", "text/event-stream").post(body.toString().toRequestBody(JSON)).build())
         if (!response.isSuccessful) throw failure(response)
-        return GeminiProtocol.text(response.body)
+        return GeminiProtocol.text(response.body) { error ->
+            failure(AiHttpResponse(error.optInt("code", 500), JSONObject().put("error", error).toString(), response.headers))
+        }
     }
 
     private suspend fun discoverProject(access: String): String {

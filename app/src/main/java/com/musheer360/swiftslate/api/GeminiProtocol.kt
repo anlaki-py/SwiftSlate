@@ -30,19 +30,29 @@ internal object GeminiProtocol {
         }.distinct().sorted()
     }
 
-    fun text(body: String): String {
+    fun text(body: String, onError: (JSONObject) -> Exception = { GoogleException(GoogleFailure.INVALID_RESPONSE) }): String {
         val output = StringBuilder()
+        var hasStarted = false
+        var completed = false
         fun append(root: JSONObject) {
             val response = root.optJSONObject("response") ?: root
+            val rpcError = root.optJSONObject("error") ?: response.optJSONObject("error")
+            if (rpcError != null) {
+                // A mid-stream error must never replay a partially processed generation.
+                if (hasStarted) throw GoogleException(GoogleFailure.TRUNCATED)
+                throw onError(rpcError)
+            }
             val block = response.optJSONObject("promptFeedback")?.optString("blockReason").orEmpty()
             if (block.isNotBlank() && block != "BLOCK_REASON_UNSPECIFIED") throw GoogleException(GoogleFailure.BLOCKED)
             val candidate = response.optJSONArray("candidates")?.optJSONObject(0) ?: return
             when (val finish = candidate.optString("finishReason")) {
                 "MAX_TOKENS" -> throw GoogleException(GoogleFailure.TRUNCATED)
-                "", "STOP", "FINISH_REASON_UNSPECIFIED" -> Unit
+                "STOP" -> completed = true
+                "", "FINISH_REASON_UNSPECIFIED" -> Unit
                 else -> throw GoogleException(if (finish == "OTHER") GoogleFailure.INVALID_RESPONSE else GoogleFailure.BLOCKED)
             }
             val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: return
+            if (parts.length() > 0) hasStarted = true
             for (index in 0 until parts.length()) {
                 val part = parts.getJSONObject(index)
                 if (!part.optBoolean("thought", false)) output.append(part.optString("text", ""))
@@ -65,6 +75,7 @@ internal object GeminiProtocol {
         }
         val text = ApiClientUtils.stripMarkdownFences(output.toString())
         if (text.isBlank()) throw GoogleException(GoogleFailure.INVALID_RESPONSE)
+        if (!completed) throw GoogleException(GoogleFailure.TRUNCATED)
         return text
     }
 

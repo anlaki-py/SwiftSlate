@@ -38,7 +38,7 @@
     <string name="google_error_storage">Gespeicherte Google-Konten konnten nicht sicher gelesen oder aktualisiert werden. Starten Sie die App neu. Gespeicherte Anmeldedaten wurden nicht überschrieben.</string>
     <string name="google_error_response">Google hat eine unvollständige oder nicht unterstützte Antwort gesendet. Aktualisieren Sie die Modellliste oder versuchen Sie es erneut.</string>
     <string name="google_error_model">Dieses Konto kann das gewählte Modell nicht nutzen. Aktualisieren Sie die Liste und wählen Sie ein anderes Gemini-Modell.</string>
-    <string name="google_error_server">Google ist vorübergehend nicht verfügbar. Versuchen Sie es später erneut.</string>
+    <string name="google_error_server">Der KI-Dienst ist vorübergehend nicht verfügbar. Versuchen Sie es später erneut.</string>
     <string name="ai_error_blocked">Das Modell hat die Anfrage abgelehnt oder gefiltert. Formulieren Sie sie um.</string>
     <string name="ai_error_truncated">Die Antwort wurde abgeschnitten. Kürzen Sie die Eingabe oder wählen Sie ein anderes Modell. Der Originaltext bleibt erhalten.</string>
     <string name="ai_error_empty">Das Modell hat keinen nutzbaren Text zurückgegeben. Wählen Sie ein anderes Modell.</string>

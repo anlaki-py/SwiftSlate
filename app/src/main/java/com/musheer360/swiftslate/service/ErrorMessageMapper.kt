@@ -36,6 +36,8 @@ object ErrorMessageMapper {
             }
             return context.getString(resource)
         }
+        if ((error as? com.musheer360.swiftslate.api.ApiException)?.apiError is com.musheer360.swiftslate.api.ApiError.ServerError)
+            return context.getString(R.string.google_error_server)
         if (error is org.json.JSONException) return context.getString(R.string.ai_error_invalid_response)
         if (error is java.io.IOException) return context.getString(R.string.ai_error_network)
         if (error is IllegalArgumentException) return context.getString(R.string.ai_error_bad_request)
@@ -48,7 +50,7 @@ object ErrorMessageMapper {
             "http_403" -> R.string.ai_error_forbidden
             "no_keys" -> R.string.ai_error_no_keys
             "keys_unavailable" -> R.string.ai_error_keys_unavailable
-            "http_429" -> R.string.google_error_rate_limited
+            "http_429" -> R.string.ai_error_keys_unavailable
             else -> if (error is com.musheer360.swiftslate.api.ApiException)
                 R.string.ai_error_bad_request else null
         }

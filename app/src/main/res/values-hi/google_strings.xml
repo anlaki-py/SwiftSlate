@@ -38,7 +38,7 @@
     <string name="google_error_storage">सहेजे गए Google खाते सुरक्षित रूप से पढ़े या अपडेट नहीं हो सके। ऐप फिर खोलें। पुराने लॉगिन बदले नहीं गए हैं।</string>
     <string name="google_error_response">Google का जवाब अधूरा है या समर्थित नहीं है। मॉडल सूची रीफ़्रेश करें या फिर कोशिश करें।</string>
     <string name="google_error_model">यह खाता चुना गया मॉडल इस्तेमाल नहीं कर सकता। सूची रीफ़्रेश करें और दूसरा Gemini मॉडल चुनें।</string>
-    <string name="google_error_server">Google अभी उपलब्ध नहीं है। बाद में कोशिश करें।</string>
+    <string name="google_error_server">AI सेवा अभी उपलब्ध नहीं है। बाद में कोशिश करें।</string>
     <string name="ai_error_blocked">मॉडल ने अनुरोध अस्वीकार या फ़िल्टर किया। दूसरे शब्दों में लिखें।</string>
     <string name="ai_error_truncated">जवाब बीच में कट गया। इनपुट छोटा करें या दूसरा मॉडल चुनें। मूल टेक्स्ट सुरक्षित है।</string>
     <string name="ai_error_empty">मॉडल ने उपयोगी टेक्स्ट नहीं दिया। दूसरा मॉडल आज़माएँ।</string>

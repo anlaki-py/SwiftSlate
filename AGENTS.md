@@ -1,426 +1,93 @@
-# AGENTS.md — Android Engineering Guidelines
+# AGENTS.md — SwiftSlate engineering and release rules
 
-> Repository: https://github.com/anlaki-py/SwiftSlate
->
-> These instructions define the preferred architecture, coding style, and modification policy for AI agents contributing to this repository. Follow them unless the user explicitly requests otherwise.
+Repository: https://github.com/anlaki-py/SwiftSlate
 
----
+These rules apply to this repository. Explicit user instructions take priority. Preserve correctness, existing behavior and architecture, then make the smallest complete change.
 
-# Core Principles
+## Session startup and communication
 
-- Prioritize correctness, readability, maintainability, and consistency over cleverness.
-- Produce the smallest change that completely solves the requested task.
-- Respect the existing architecture and coding style unless the task explicitly requires refactoring.
-- Never rewrite unrelated code.
-- Do not introduce new dependencies unless they are required and justified.
-- Favor composition over inheritance.
-- Keep implementations simple and predictable.
+- Read this file and inspect the working tree before editing. Preserve unrelated and untracked user files.
+- Use the available `unslop` and `i-have-adhd` skills for plain, concise communication. Use `maintainable-engineering` for substantial code changes and `cleanup` before finishing them.
+- Report concrete results and remaining limits. Never claim a build, test, release or device flow passed without evidence.
+- Finish authorized implementation and verification work. Ask only when essential information or authorization is missing.
 
----
+## Verification policy: GitHub Actions only
 
-# Modification Policy
+**Never build locally. Never run local Gradle tasks, including lint, tests, packaging or wrapper version checks.** The owner requires verification through CI even when local tools are available. Do not install a local build toolchain to work around this rule.
 
-## Always
+Read-only source review, repository inspection and reading CI logs/reports are allowed. Push authorized changes, inspect the GitHub Actions results and correct actual failures. Do not hide deterministic failures with retries, lint suppressions, baselines or skipped tests.
 
-- Make focused, minimal diffs.
-- Reuse existing abstractions whenever practical.
-- Preserve backwards compatibility unless instructed otherwise.
-- Remove dead code when modifying the surrounding implementation.
-- Keep imports clean.
-- Keep files organized and cohesive.
+## Code style and scope
 
-## Never
+- Make focused diffs. Preserve public APIs, serialized data, app identity and supported devices unless the task requires a change.
+- Reuse existing abstractions and dependencies. Add a dependency only when needed and compatible with the current Android toolchain.
+- Keep one main responsibility per class and one primary class per file. Aim for roughly 200–350 lines; split mixed responsibilities rather than enforcing an arbitrary line limit.
+- Use descriptive names and Boolean prefixes such as `is`, `has`, `can` and `should`. Avoid vague managers/helpers and stacked Boolean arguments in new APIs.
+- Remove imports, duplicate logic and dead code orphaned by the current change. Do not expand cleanup into unrelated refactoring.
+- Document public APIs and non-obvious rules with KDoc. Comments explain intent, limitations and workarounds, not obvious code.
+- Put user-facing strings, shared dimensions and colors in Android resources. Keep localization complete across the existing app languages.
 
-- Perform unrelated refactors.
-- Rename files, packages, or public APIs without necessity.
-- Introduce duplicate implementations.
-- Leave TODOs instead of implementing requested functionality.
-- Disable lint checks to silence warnings.
+## Architecture and repository map
 
----
+New functionality belongs under `feature/<feature>/data`, `domain` and `ui`. Existing shared packages remain in place unless the task needs a scoped refactor.
 
-# Project Structure
+- `app/src/main/java/com/musheer360/swiftslate/feature/google/` owns Google account login, credential storage, selection policy and account UI.
+- `api/` owns the shared HTTP transport and provider protocol adapters. `data/` contains existing provider, key, command and backup persistence.
+- `service/` owns accessibility processing and foreground-service lifecycle. `ui/` contains existing Compose screens and shared UI state.
+- `app/src/test/` contains JUnit/Robolectric tests. `.github/scripts/` contains release planning, validation, publication and non-publishing regression tests.
 
-Organize code by feature rather than by technical layer.
+UI renders state, collects flows, handles interactions and navigates. Keep business rules, networking and storage out of composables. ViewModels expose immutable `StateFlow`, keep mutable state private and use `SharedFlow` for one-time events. Do not retain an Activity, Fragment or View. Use explicitly supplied application dependencies when Android context is required.
 
-Good:
+Keep business rules in domain code, independent of Android where practical. Use cases expose one entry point, normally `operator fun invoke`. Data code coordinates APIs, persistence and mapping. Use immutable models suited to each responsibility and explicit dependencies rather than hidden globals.
 
-```
-feature/
-    login/
-        data/
-        domain/
-        ui/
+## Networking, state and security
 
-    profile/
-        data/
-        domain/
-        ui/
-```
+- Use the application-scoped `AiServices` transport and request router. Preserve old providers as `OPENAI_COMPATIBLE` when their saved protocol is absent.
+- Keep network, disk and keystore work off Main. Use structured concurrency, cancellation and bounded timeouts/responses; never `GlobalScope` or blocking network calls in UI code.
+- Coroutine cancellation must cancel the underlying request. Do not consume `CancellationException` as an ordinary failure.
+- Do not replay a possibly accepted generation after a network or partial-stream error. Negotiate unsupported parameters only after explicit rejection. Refused, truncated or incomplete responses must preserve the input text.
+- Synchronize compound state changes. Serialize token renewal per account, preserve concurrent account updates and persist model cooldowns. A rate limit is not a revoked credential.
+- Validate URLs and external responses. Never forward OAuth tokens to user-defined endpoints, follow authenticated redirects, fabricate a Google project, or switch backend hosts to work around entitlement errors.
+- Keep Google tokens encrypted with Android Keystore in no-backup storage. Never add tokens to UI models, provider preferences, backups, logs, screenshots or CI artifacts. A failed storage read/write must not erase existing credentials or fall back to plaintext.
+- Inject installed-app OAuth client configuration through build environment values. Never commit client configuration, signing passwords, keystores, access tokens or refresh tokens. Installed-app client configuration is recoverable from an APK; it is not a confidential user credential.
+- Surface typed, useful errors through UI state and log safe diagnostic context. Never log raw authenticated requests or response bodies containing credentials.
 
-Avoid:
+## Branches and CI
 
-```
-ui/
-fragments/
-activities/
-repositories/
-viewmodels/
-```
+- `main` is stable. `beta` is development/prerelease, migrated from the former `test` history.
+- `master` and `test` remain historical branches with CI-only coverage. Do not delete, reset or force-push them, or any historical tag/release, without explicit owner authorization.
+- `.github/workflows/ci.yml` runs on pushes and pull requests to `main`, `beta`, `master` and `test`, and supports manual checks on those branches.
+- CI uses Temurin JDK 21, the committed Gradle wrapper and the shared Gradle setup action. It has read-only contents permission and no signing/OAuth secrets.
+- Preserve the **Lint**, **Unit Tests**, and **Release automation checks** jobs. They run `lint`, `testDebugUnitTest`, release-script tests and `actionlint` on GitHub runners. Reports are retained even when a job fails.
+- Keep required status checks reliable for documentation-only PRs; do not introduce path filters that leave them pending. Cancel stale CI runs by branch.
+- A push, PR, tag, successful CI run, `workflow_run` or release event must never publish a GitHub Release or create release tags.
 
----
+## Manual releases
 
-# File Organization
+Release publication requires explicit owner authorization in the current task or an owner dispatch through Actions. A request to implement or push code alone does not authorize publishing. Never trigger a live release solely to demonstrate a migration.
 
-- Prefer one primary class per file.
-- Filename should match the primary class.
-- Split files that become difficult to navigate (generally around 200–300 lines, using judgment rather than a strict limit).
-- Group closely related small classes only when it improves readability.
+- **Release Beta**, `.github/workflows/release-beta.yml`, runs only through manual dispatch selecting `beta`. Example: `gh workflow run release-beta.yml --ref beta -R anlaki-py/SwiftSlate`.
+- **Release Stable**, `.github/workflows/release-main.yml`, runs only through manual dispatch selecting `main`. Example: `gh workflow run release-main.yml --ref main -R anlaki-py/SwiftSlate`.
+- Both wrappers reject the wrong branch and non-owner dispatch/rerun actors before checkout or build. Their shared `release.yml` implementation must retain the same checks.
+- Keep the common release concurrency group with cancellation disabled. Both channels must independently rerun lint and unit tests before signing/publication, regardless of previous CI results.
+- CI/build jobs use `contents: read`; only publication receives `contents: write`. Do not expose a write token or signing secrets to PR code.
 
----
+Stable tags determine the next patch under `baseVersion`; beta tags append `-beta.N` to that upcoming stable version. Legacy `-beta.test.*` tags must not affect stable patch selection. Android version codes must increase across beta and stable installs, including legacy minute-based releases and closely timed runs.
 
-# Architecture
+Build `assembleRelease` for both channels. SwiftSlate publishes one universal APK, with package `swiftslate.anlaki.dev` and its existing release certificate. Do not publish `.debug` APKs, add ABI splits without need, rotate the certificate, or restore the debug signing fallback. Read current SDK/version values from the Gradle configuration; the integration retains min SDK 23 and target SDK 36.
 
-Maintain clear boundaries.
+Required signing secrets are `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`. Google-enabled release builds also need `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`. `GRADLE_CACHE_ENCRYPTION_KEY` is optional. Never print values or put them in report artifacts. Decode the keystore only in the manual release build job and remove it with an `always()` cleanup step.
 
-## UI Layer
+Validate the exact APK count, nonempty/plausible size, package/version/SDK values and `apksigner` signature against `.github/scripts/release-config.json`. Create/push a new tag only after verification, signing and asset validation succeed. Check remote tags/releases again before publication; never overwrite a collision. If publication fails after tag creation, retain the tag/draft/artifacts for inspection rather than rewrite history.
 
-Responsible for:
+## Changelog, assets and completion
 
-- Rendering state
-- User interaction
-- Collecting Flow
-- Navigation
-- Display logic
+- Beta notes come from nonempty `## [Unreleased]` in `CHANGELOG.md`. Stable notes come from the exact nonempty version section, with its intended release date. Missing or empty notes must block publication before a tag is created.
+- Write short, concrete release notes about actual changes. Do not invent historical notes or ship placeholders. Use `Fixed` only for bugs in shipped behavior; fold corrections to unreleased work into `Added` or `Changed`.
+- Preserve the extracted Markdown exactly. Do not replace canonical notes with generated commit summaries. The current metadata schema stores them in `release_notes`, with a commit-specific changelog URL.
+- Publish the versioned universal APK, `checksums-sha256.txt` and `release-metadata.json`. Metadata must describe SwiftSlate, the actual APK, channel, version, source commit, certificate and release/changelog URLs. Beta is a prerelease; stable is not.
+- Before finishing, review the session diff with `cleanup`, inspect exact-commit CI results and report any device-only or external-service checks still needed. Keep implementation/release documentation current. Never claim that synthetic tests proved a real Google account can sign in or access a model.
 
-Must NOT contain:
+## Priority
 
-- Business logic
-- Networking
-- Database operations
-
----
-
-## Domain Layer
-
-Responsible for:
-
-- Business rules
-- Validation
-- Use cases
-- Pure application logic
-
-Should remain Android-independent whenever practical.
-
-Each UseCase should expose a single public entry point:
-
-```kotlin
-operator fun invoke(...)
-```
-
-or
-
-```kotlin
-fun execute(...)
-```
-
----
-
-## Data Layer
-
-Responsible for:
-
-- Repository implementations
-- Remote APIs
-- Local database
-- Data mapping
-- Caching
-
-Repositories coordinate data sources.
-
-Repositories should NOT contain business rules.
-
----
-
-# Dependency Direction
-
-Preferred dependency flow:
-
-```
-UI
- ↓
-Domain
- ↓
-Data
-```
-
-Framework dependencies should not leak into the Domain layer.
-
-Business logic belongs in Domain, not UI or Repository implementations.
-
----
-
-# ViewModels
-
-- One ViewModel per screen unless shared UI state is intentionally required.
-- Expose immutable StateFlow to the UI.
-- Keep mutable state private.
-- ViewModels should not hold Activity, Fragment, or View references.
-- Never store Context directly.
-- If application context is required, inject it explicitly.
-
-Example:
-
-```kotlin
-private val _uiState = MutableStateFlow(...)
-val uiState: StateFlow<UiState> = _uiState.asStateFlow()
-```
-
----
-
-# State Management
-
-Use:
-
-- StateFlow for UI state
-- SharedFlow for one-time events
-
-Examples of one-time events:
-
-- Navigation
-- Snackbar
-- Toast
-- Dialog triggers
-
-Avoid LiveData in new code unless integrating with existing architecture.
-
----
-
-# Coroutines
-
-- Never block the Main dispatcher.
-- Network and disk operations belong on Dispatchers.IO.
-- CPU-intensive work belongs on Dispatchers.Default.
-- Prefer structured concurrency.
-- Avoid GlobalScope.
-
----
-
-# Jetpack Compose
-
-- Keep composables small and focused.
-- Extract reusable UI into separate composables.
-- Hoist state whenever practical.
-- Avoid business logic inside composables.
-- Prefer immutable UI models.
-- Keep previews independent from production dependencies.
-
----
-
-# Resources
-
-Never hardcode:
-
-- strings
-- colors
-- dimensions
-
-Use:
-
-```
-res/values/
-```
-
-for shared resources.
-
-Small internal constants may remain as private constants when localization is unnecessary.
-
----
-
-# Naming
-
-Use descriptive names.
-
-Examples:
-
-```
-LoginViewModel
-LoginScreen
-ProfileRepository
-LoadProfileUseCase
-```
-
-Boolean names should begin with:
-
-- is
-- has
-- should
-- can
-
-Avoid unnecessary abbreviations.
-
-Good:
-
-```
-userRepository
-authenticationState
-```
-
-Avoid:
-
-```
-usrRepo
-authMgr
-procData
-```
-
----
-
-# Models
-
-Keep models separated by responsibility.
-
-Examples:
-
-```
-UserDto
-UserEntity
-User
-UserUiModel
-```
-
-Avoid using a single model for every layer.
-
----
-
-# Extensions
-
-Place reusable extensions in dedicated files.
-
-Example:
-
-```
-StringExtensions.kt
-FlowExtensions.kt
-ContextExtensions.kt
-```
-
----
-
-# Constants
-
-Shared constants belong in dedicated files.
-
-Example:
-
-```
-LoginConstants.kt
-NetworkConstants.kt
-```
-
-Avoid "magic numbers."
-
----
-
-# Documentation
-
-Document intent rather than implementation.
-
-Public APIs and non-trivial functions should include KDoc explaining:
-
-- purpose
-- parameters
-- return value
-- important business rules
-
-Do not write KDoc for obvious private helper functions.
-
-Prefer self-documenting code over excessive comments.
-
-Comments should explain:
-
-- business rules
-- edge cases
-- non-obvious decisions
-
-Never comment code that is already obvious.
-
----
-
-# Error Handling
-
-Handle failures explicitly.
-
-- Prefer Result or sealed result types where appropriate.
-- Never silently swallow exceptions.
-- Log meaningful diagnostic information when failures occur.
-- Surface user-facing errors through UI state.
-
----
-
-# Testing
-
-When modifying business logic:
-
-- Update existing tests when necessary.
-- Add tests for newly introduced behavior when the project already contains tests.
-- Do not introduce a testing framework if none exists.
-
----
-
-# Performance
-
-Prefer:
-
-- immutable objects
-- lazy work
-- efficient collections
-- avoiding unnecessary allocations
-
-Avoid premature optimization.
-
-Optimize only when measurable or clearly beneficial.
-
----
-
-# Code Quality Checklist
-
-Before finishing, verify:
-
-- Architecture boundaries are respected.
-- No duplicated logic was introduced.
-- Naming is consistent.
-- Imports are clean.
-- Public API remains compatible.
-- Business logic lives in the Domain layer.
-- UI only renders state.
-- Repository only manages data.
-- Coroutine dispatchers are appropriate.
-- StateFlow and SharedFlow usage is correct.
-- No hardcoded resources.
-- No dead code remains.
-- The implementation is easy to read.
-
----
-
-# Build Policy
-
-Do **not** build the project locally.
-
-Do **not** run Gradle tasks unless explicitly requested.
-
-Continuous Integration (GitHub Actions) is responsible for project builds and verification.
-
----
-
-# Priority Order
-
-When rules conflict, follow this order:
-
-1. Explicit user instructions
-2. Correctness
-3. Existing project architecture
-4. These guidelines
-5. Personal preference
-
-Consistency with the existing codebase is preferred over rigid adherence to generic conventions.
+Explicit user instructions, correctness, existing architecture, these repository rules, then personal preference. The no-local-build policy and manual-only publishing model are deliberate owner requirements.

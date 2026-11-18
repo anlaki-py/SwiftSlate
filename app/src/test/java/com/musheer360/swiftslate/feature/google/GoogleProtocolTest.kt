@@ -98,4 +98,21 @@ class GoogleProtocolTest {
         assertTrue(EndpointValidation.validate("https://example.com/v1") is EndpointValidationResult.Valid)
         assertTrue(EndpointValidation.validate("http://127.0.0.1:1234/v1") is EndpointValidationResult.Valid)
     }
+
+    @Test fun unterminatedStreamsAndMidstreamErrorsCannotReturnPartialText() {
+        val partial = """data: {"response":{"candidates":[{"content":{"parts":[{"text":"partial"}]}}]}}
+
+        """
+        val error = """data: {"error":{"code":429,"message":"quota"}}
+
+        """
+        for (stream in listOf(partial, partial + error)) {
+            try { GeminiProtocol.text(stream); fail("Partial stream accepted") }
+            catch (failure: GoogleException) { assertEquals(GoogleFailure.TRUNCATED, failure.failure) }
+        }
+        try {
+            GeminiProtocol.text(error) { GoogleException(GoogleFailure.RATE_LIMITED) }
+            fail("Initial RPC error ignored")
+        } catch (failure: GoogleException) { assertEquals(GoogleFailure.RATE_LIMITED, failure.failure) }
+    }
 }

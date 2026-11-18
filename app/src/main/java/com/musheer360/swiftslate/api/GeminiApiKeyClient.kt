@@ -36,6 +36,8 @@ class GeminiApiKeyClient(private val http: AiHttpTransport) {
         val response = http.execute(Request.Builder().url(url).header("x-goog-api-key", key)
             .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
         if (!response.isSuccessful) throw OpenAiProtocol.exception(response)
-        GenerateResult(GeminiProtocol.text(response.body))
+        GenerateResult(GeminiProtocol.text(response.body) { error ->
+            OpenAiProtocol.exception(AiHttpResponse(error.optInt("code", 500), JSONObject().put("error", error).toString(), response.headers))
+        })
     }
 }

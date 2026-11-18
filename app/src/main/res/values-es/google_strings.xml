@@ -38,7 +38,7 @@
     <string name="google_error_storage">No se pudieron leer o actualizar las cuentas de forma segura. Reinicia la app. Las credenciales guardadas no se han sobrescrito.</string>
     <string name="google_error_response">Google devolvió una respuesta incompleta o no compatible. Actualiza la lista de modelos o vuelve a intentarlo.</string>
     <string name="google_error_model">Esta cuenta no puede usar el modelo seleccionado. Actualiza la lista y elige otro modelo Gemini.</string>
-    <string name="google_error_server">Google no está disponible temporalmente. Inténtalo más tarde.</string>
+    <string name="google_error_server">El servicio de IA no está disponible temporalmente. Inténtalo más tarde.</string>
     <string name="ai_error_blocked">El modelo rechazó o filtró la solicitud. Prueba a reformularla.</string>
     <string name="ai_error_truncated">La respuesta se cortó. Acorta el texto o elige otro modelo. Se ha conservado el texto original.</string>
     <string name="ai_error_empty">El modelo no devolvió texto útil. Prueba otro modelo.</string>
