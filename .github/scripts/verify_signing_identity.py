@@ -1,9 +1,10 @@
 """Fail before building if the configured keystore does not match SwiftSlate's release identity."""
+import argparse
 import hashlib
+import os
 from pathlib import Path
-import sys
 
-from release import CONFIG
+from release import CONFIG, run
 
 
 def verify_certificate(certificate):
@@ -19,4 +20,17 @@ def verify_certificate(certificate):
 
 
 if __name__ == '__main__':
-    verify_certificate(Path(sys.argv[1]).read_bytes())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('certificate', type=Path)
+    parser.add_argument('--prior-apk', type=Path)
+    args = parser.parse_args()
+    if args.prior_apk:
+        tools = Path(os.environ['ANDROID_HOME']) / 'build-tools'
+        versions = sorted((p for p in tools.iterdir() if p.name.replace('.', '').isdigit()),
+                          key=lambda p: tuple(map(int, p.name.split('.'))))
+        report = run(str(versions[-1] / 'apksigner'), 'verify', '--verbose', '--print-certs', str(args.prior_apk))
+        Path('prior-signature-verification.txt').write_text(report + '\n')
+        for line in report.splitlines():
+            if 'certificate SHA-256 digest:' in line:
+                print(f'Previously published APK: {line}')
+    verify_certificate(args.certificate.read_bytes())
