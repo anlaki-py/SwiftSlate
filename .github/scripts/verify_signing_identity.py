@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from release import CONFIG, run
+from release_assets import certificate
 
 
 def verify_certificate(certificate):
@@ -30,6 +31,7 @@ if __name__ == '__main__':
                           key=lambda p: tuple(map(int, p.name.split('.'))))
         report = run(str(versions[-1] / 'apksigner'), 'verify', '--verbose', '--print-certs', str(args.prior_apk))
         Path('prior-signature-verification.txt').write_text(report + '\n')
+        certificate(report)
         for line in report.splitlines():
             if 'certificate SHA-256 digest:' in line:
                 print(f'Previously published APK: {line}')
