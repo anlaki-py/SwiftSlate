@@ -91,4 +91,18 @@ class GoogleAccountRepositoryTest {
         assertEquals(1, repository.accounts.value.size)
         assertEquals(1, store.saved.size)
     }
+
+    @Test fun modelCooldownDoesNotBlockDifferentModelsAndSurvivesReload() = runBlocking {
+        val store = Store(listOf(credential("one")))
+        val first = repository(store)
+        respond(429, "{}")
+        try { first.generate("gemini-pro", "Fix", "input", 0.7); fail("Limit ignored") }
+        catch (error: GoogleException) { assertEquals(GoogleFailure.RATE_LIMITED, error.failure) }
+        val reloaded = repository(store)
+        respond(200, generated)
+        assertEquals("Fixed", reloaded.generate("gemini-flash", "Fix", "input", 0.7))
+        try { reloaded.generate("gemini-pro", "Fix", "input", 0.7); fail("Cooldown lost on reload") }
+        catch (error: GoogleException) { assertEquals(GoogleFailure.RATE_LIMITED, error.failure) }
+        assertEquals(2, server.requestCount)
+    }
 }

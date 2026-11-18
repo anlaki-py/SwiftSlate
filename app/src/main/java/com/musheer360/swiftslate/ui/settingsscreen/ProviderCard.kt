@@ -1,7 +1,5 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
-import com.musheer360.swiftslate.model.ProviderProtocol
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.model.Provider
+import com.musheer360.swiftslate.model.ProviderProtocol
 import com.musheer360.swiftslate.ui.components.SlateCard
 import com.musheer360.swiftslate.ui.shared.SwiftSlateViewModel
 
@@ -47,7 +46,6 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 vm.setActiveProvider(provider.id)
                 providerExpanded = false
-                vm.fetchProviderModels(provider.id)
             },
             onAddClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

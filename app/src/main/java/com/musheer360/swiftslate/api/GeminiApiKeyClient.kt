@@ -1,7 +1,6 @@
 package com.musheer360.swiftslate.api
 
 import com.musheer360.swiftslate.domain.EndpointValidation
-
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request

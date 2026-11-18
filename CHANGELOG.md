@@ -18,7 +18,7 @@ Release notes are maintained here. Beta releases read `Unreleased`; stable relea
 ### Changed
 
 - Replaced blocking HTTP clients with one shared OkHttp connection pool and bounded responses.
-- Negotiate structured output only after an explicit unsupported-format error, with no automatic replay of failed generation requests.
+- Negotiate structured output and reasoning-model temperature support only after explicit parameter errors, with no automatic replay of uncertain generation requests.
 - Keep Google credentials encrypted on the device and excluded from backups; browser login uses PKCE and a temporary foreground callback service.
 
 ### Changed

@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.musheer360.swiftslate.model.Provider
 import com.musheer360.swiftslate.model.ProviderProtocol
+import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.UUID
 
 /**
  * CRUD manager for user-defined AI providers.

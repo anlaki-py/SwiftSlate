@@ -1,7 +1,5 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
-import com.musheer360.swiftslate.feature.google.ui.GoogleAccountCard
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +9,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
+import com.musheer360.swiftslate.feature.google.ui.GoogleAccountCard
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.shared.SwiftSlateViewModel

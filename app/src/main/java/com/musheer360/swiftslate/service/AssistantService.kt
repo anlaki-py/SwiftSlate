@@ -1,7 +1,5 @@
 package com.musheer360.swiftslate.service
 
-import com.musheer360.swiftslate.model.ProviderProtocol
-
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.os.Handler
@@ -15,6 +13,7 @@ import com.musheer360.swiftslate.data.KeyManager
 import com.musheer360.swiftslate.data.ProviderManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
+import com.musheer360.swiftslate.model.ProviderProtocol
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +24,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
 
 /**
  * Accessibility service that detects command triggers typed in any text field,

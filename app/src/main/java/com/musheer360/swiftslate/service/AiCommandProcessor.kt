@@ -1,11 +1,10 @@
 package com.musheer360.swiftslate.service
 
-import com.musheer360.swiftslate.SwiftSlateApp
-
 import android.content.Context
 import android.os.Handler
 import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityNodeInfo
+import com.musheer360.swiftslate.SwiftSlateApp
 import com.musheer360.swiftslate.data.ProviderManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.Provider
@@ -14,13 +13,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.TimeoutCancellationException
 
 /**
  * Handles AI-powered text transformation commands. Manages provider resolution,

@@ -1,8 +1,7 @@
 package com.musheer360.swiftslate.ui.shared
 
-import com.musheer360.swiftslate.model.ProviderProtocol
-
 import com.musheer360.swiftslate.model.Command
+import com.musheer360.swiftslate.model.ProviderProtocol
 
 data class DashboardUiState(
     val isServiceEnabled: Boolean = false,

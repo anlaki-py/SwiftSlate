@@ -1,7 +1,5 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
-import com.musheer360.swiftslate.model.ProviderProtocol
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.domain.EndpointValidation
 import com.musheer360.swiftslate.domain.EndpointValidationResult
+import com.musheer360.swiftslate.model.ProviderProtocol
 import com.musheer360.swiftslate.ui.components.SlateTextField
 
 /**

@@ -39,6 +39,14 @@ internal object OpenAiProtocol {
             listOf("unsupported", "not support", "not available", "not permitted", "invalid").any { it in message }
     }
 
+    fun unsupportedTemperature(response: AiHttpResponse): Boolean {
+        if (response.code !in setOf(400, 422)) return false
+        val error = runCatching { JSONObject(response.body).optJSONObject("error") }.getOrNull()
+        val message = error?.optString("message").orEmpty().lowercase()
+        return error?.optString("param") == "temperature" &&
+            ("unsupported" in message || "not support" in message || "only" in message && "default" in message)
+    }
+
     fun text(body: String): String {
         val choice = JSONObject(body).optJSONArray("choices")?.optJSONObject(0)
             ?: throw ApiException(ApiError.Other("invalid_response"), "invalid_response")

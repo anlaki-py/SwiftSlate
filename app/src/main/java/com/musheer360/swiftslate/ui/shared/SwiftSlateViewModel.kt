@@ -1,29 +1,28 @@
 package com.musheer360.swiftslate.ui.shared
 
-import com.musheer360.swiftslate.SwiftSlateApp
-import com.musheer360.swiftslate.model.ProviderProtocol
-import com.musheer360.swiftslate.service.ErrorMessageMapper
-import com.musheer360.swiftslate.domain.KeyValidationResult
-
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.musheer360.swiftslate.SwiftSlateApp
 import com.musheer360.swiftslate.api.OpenAICompatibleClient
-import com.musheer360.swiftslate.domain.CommandValidation
-import com.musheer360.swiftslate.domain.CommandValidationResult
-import com.musheer360.swiftslate.domain.KeyValidation
 import com.musheer360.swiftslate.data.BackupResult
 import com.musheer360.swiftslate.data.CommandManager
 import com.musheer360.swiftslate.data.KeyManager
 import com.musheer360.swiftslate.data.ProviderManager
+import com.musheer360.swiftslate.domain.CommandValidation
+import com.musheer360.swiftslate.domain.CommandValidationResult
+import com.musheer360.swiftslate.domain.KeyValidation
+import com.musheer360.swiftslate.domain.KeyValidationResult
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.CommandType
 import com.musheer360.swiftslate.model.Provider
+import com.musheer360.swiftslate.model.ProviderProtocol
 import com.musheer360.swiftslate.service.AccessibilityHelper
 import com.musheer360.swiftslate.service.AssistantService
 import com.musheer360.swiftslate.service.BatteryOptimizationHelper
+import com.musheer360.swiftslate.service.ErrorMessageMapper
 import com.musheer360.swiftslate.service.KeepAliveService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

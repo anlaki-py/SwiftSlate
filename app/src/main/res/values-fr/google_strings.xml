@@ -50,4 +50,5 @@
     <string name="ai_error_keys_unavailable">Toutes les clés sont invalides ou temporairement limitées. Vérifiez-les ou réessayez plus tard.</string>
     <string name="ai_protocol_openai">Compatible OpenAI</string>
     <string name="ai_protocol_gemini">Clé API Gemini</string>
+    <string name="ai_error_network">Impossible de joindre le fournisseur IA. Vérifiez votre connexion et réessayez.</string>
 </resources>

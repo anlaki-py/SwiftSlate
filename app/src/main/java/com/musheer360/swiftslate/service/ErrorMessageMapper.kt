@@ -1,8 +1,8 @@
 package com.musheer360.swiftslate.service
 
+import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.feature.google.domain.GoogleException
 import com.musheer360.swiftslate.feature.google.domain.GoogleFailure
-import com.musheer360.swiftslate.R
 
 /**
  * Maps raw API and network error messages to concise, user-friendly descriptions.
@@ -36,6 +36,9 @@ object ErrorMessageMapper {
             }
             return context.getString(resource)
         }
+        if (error is org.json.JSONException) return context.getString(R.string.ai_error_invalid_response)
+        if (error is java.io.IOException) return context.getString(R.string.ai_error_network)
+        if (error is IllegalArgumentException) return context.getString(R.string.ai_error_bad_request)
         val resource = when (error.message) {
             "blocked_response" -> R.string.ai_error_blocked
             "truncated_response" -> R.string.ai_error_truncated

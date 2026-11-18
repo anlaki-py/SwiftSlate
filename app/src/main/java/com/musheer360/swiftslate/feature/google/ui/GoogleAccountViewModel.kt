@@ -39,7 +39,7 @@ class GoogleAccountViewModel(application: Application) : AndroidViewModel(applic
     fun activate() = perform { services.activateGoogleProvider() }
     fun openBrowser() { services.login.openBrowser() }
     fun dismissError() { operation.value = operation.value.copy(error = null); services.login.dismissResult() }
-    fun browserFailed() { services.login.fail(GoogleException(GoogleFailure.CONFIGURATION)) }
+    fun browserFailed() { operation.value = operation.value.copy(error = GoogleException(GoogleFailure.CONFIGURATION)) }
 
     private fun perform(block: suspend () -> Unit) {
         if (operation.value.isWorking) return

@@ -27,6 +27,7 @@ internal class GoogleAccountApi(
 
     suspend fun refresh(credential: GoogleCredential): GoogleCredential {
         val token = token(FormBody.Builder().add("refresh_token", credential.refreshToken).add("grant_type", "refresh_token"))
+        if (token.optString("access_token").isBlank()) throw GoogleException(GoogleFailure.INVALID_RESPONSE)
         return credential.copy(accessToken = token.getString("access_token"),
             refreshToken = token.optString("refresh_token").ifBlank { credential.refreshToken },
             expiresAt = expiry(token), account = credential.account.copy(needsLogin = false))
@@ -72,8 +73,10 @@ internal class GoogleAccountApi(
             if (attempt > 0) delay(2000)
             val operation = post("onboardUser", access, JSONObject().put("metadata", metadata).put("tierId", tier), onboard = true)
             if (operation.has("error")) throw GoogleException(GoogleFailure.ACCESS_DENIED)
-            projectId(operation.optJSONObject("response")?.opt("cloudaicompanionProject"))?.let { return it }
-            if (operation.optBoolean("done")) throw GoogleException(GoogleFailure.ACCESS_DENIED)
+            if (operation.optBoolean("done")) {
+                projectId(operation.optJSONObject("response")?.opt("cloudaicompanionProject"))?.let { return it }
+                throw GoogleException(GoogleFailure.ACCESS_DENIED)
+            }
         }
         throw GoogleException(GoogleFailure.SERVER)
     }

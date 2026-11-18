@@ -50,4 +50,5 @@
     <string name="ai_error_keys_unavailable">सभी कुंजियाँ अमान्य हैं या उनकी सीमा पूरी है। कुंजियाँ जाँचें या प्रतीक्षा करके फिर कोशिश करें।</string>
     <string name="ai_protocol_openai">OpenAI संगत</string>
     <string name="ai_protocol_gemini">Gemini API कुंजी</string>
+    <string name="ai_error_network">AI प्रदाता से जुड़ नहीं सके। कनेक्शन जाँचें और फिर कोशिश करें।</string>
 </resources>

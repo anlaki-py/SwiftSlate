@@ -50,4 +50,5 @@
     <string name="ai_error_keys_unavailable">所有密钥均无效或暂时受限。请检查密钥，或等待后重试。</string>
     <string name="ai_protocol_openai">兼容 OpenAI</string>
     <string name="ai_protocol_gemini">Gemini API 密钥</string>
+    <string name="ai_error_network">无法连接 AI 提供方。请检查网络连接后重试。</string>
 </resources>

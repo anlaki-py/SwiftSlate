@@ -49,26 +49,27 @@ class GoogleAccountRepository internal constructor(
         val fresh = fresh(id, force = true)
         val models = api.models(fresh)
         update(id) { it.copy(account = it.account.copy(remainingFraction = GeminiProtocol.remainingFraction(models),
-            cooldownUntil = 0, verificationUrl = null)) }
+            verificationUrl = null)) }
     }
 
-    suspend fun models(): List<String> = withAccount { credential ->
+    suspend fun models(): List<String> = withAccount("*") { credential ->
         val models = api.models(credential)
         update(credential.account.id) { it.copy(account = it.account.copy(remainingFraction = GeminiProtocol.remainingFraction(models))) }
         GeminiProtocol.modelIds(models)
     }
 
     suspend fun generate(model: String, prompt: String, text: String, temperature: Double): String =
-        withAccount { api.generate(it, model, prompt, text, temperature) }
+        withAccount(model) { api.generate(it, model, prompt, text, temperature) }
 
-    private suspend fun <T> withAccount(block: suspend (GoogleCredential) -> T): T {
+    private suspend fun <T> withAccount(modelScope: String, block: suspend (GoogleCredential) -> T): T {
         load()
         val attempted = mutableSetOf<String>()
         var lastFailure: GoogleException? = null
         val limit = accounts.value.size
         repeat(limit) {
             val candidate = withContext(Dispatchers.IO) { mutex.withLock {
-                val public = credentials.orEmpty().map { it.account }
+                val public = credentials.orEmpty().map { credential -> credential.account.copy(cooldownUntil =
+                    maxOf(credential.cooldowns["*"] ?: 0, credential.cooldowns[modelScope] ?: 0)) }
                 SelectGoogleAccount(public, cursor, attempted, System.currentTimeMillis())?.also {
                     cursor = (public.indexOf(it) + 1).mod(public.size)
                 }
@@ -87,8 +88,11 @@ class GoogleAccountRepository internal constructor(
                 lastFailure = error
                 when (error.failure) {
                     GoogleFailure.LOGIN_REQUIRED -> update(candidate.id) { it.copy(account = it.account.copy(needsLogin = true)) }
-                    GoogleFailure.RATE_LIMITED -> update(candidate.id) { it.copy(account = it.account.copy(
-                        cooldownUntil = System.currentTimeMillis() + error.retryAfterMillis)) }
+                    GoogleFailure.RATE_LIMITED -> update(candidate.id) {
+                        val until = System.currentTimeMillis() + error.retryAfterMillis
+                        it.copy(cooldowns = it.cooldowns.filterValues { expiry -> expiry > System.currentTimeMillis() } + (modelScope to until),
+                            account = it.account.copy(cooldownUntil = maxOf(it.account.cooldownUntil, until)))
+                    }
                     GoogleFailure.VERIFY_ACCOUNT -> update(candidate.id) { it.copy(account = it.account.copy(verificationUrl = error.verificationUrl)) }
                     GoogleFailure.ACCESS_DENIED, GoogleFailure.MODEL_UNAVAILABLE -> Unit
                     else -> throw error

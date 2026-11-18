@@ -1,7 +1,6 @@
 package com.musheer360.swiftslate.api
 
 import com.musheer360.swiftslate.domain.EndpointValidation
-
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -15,6 +14,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  */
 class OpenAICompatibleClient(private val http: AiHttpTransport = AiHttpTransport()) {
     private val formats = ConcurrentHashMap<String, Int>()
+    private val defaultTemperatureOnly = ConcurrentHashMap.newKeySet<String>()
 
     suspend fun validateKey(apiKey: String, endpoint: String): Result<String> =
         fetchModels(apiKey, endpoint).map { "Valid" }
@@ -33,17 +33,24 @@ class OpenAICompatibleClient(private val http: AiHttpTransport = AiHttpTransport
         require(model.isNotBlank() && apiKey.isNotBlank())
         val cacheKey = "$endpoint|$model"
         var format = formats[cacheKey] ?: 2
+        var includeTemperature = cacheKey !in defaultTemperatureOnly
         var response: AiHttpResponse
         do {
             val body = OpenAiProtocol.request(prompt, text, model, temperature, format)
+            if (!includeTemperature) body.remove("temperature")
             response = http.execute(request(endpoint, "chat/completions", apiKey)
                 .post(body.toString().toRequestBody(JSON)).build())
             if (!response.isSuccessful && format > 0 && OpenAiProtocol.unsupportedFormat(response)) format--
+            else if (!response.isSuccessful && includeTemperature && OpenAiProtocol.unsupportedTemperature(response)) includeTemperature = false
             else break
         } while (true)
         if (!response.isSuccessful) throw OpenAiProtocol.exception(response)
         if (formats.size > 128) formats.clear()
         formats[cacheKey] = format
+        if (!includeTemperature) {
+            if (defaultTemperatureOnly.size > 128) defaultTemperatureOnly.clear()
+            defaultTemperatureOnly.add(cacheKey)
+        }
         GenerateResult(OpenAiProtocol.text(response.body))
     }
 

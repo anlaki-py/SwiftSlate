@@ -21,7 +21,8 @@ internal data class GoogleCredential(
     val projectId: String,
     val accessToken: String,
     val refreshToken: String,
-    val expiresAt: Long
+    val expiresAt: Long,
+    val cooldowns: Map<String, Long> = emptyMap()
 ) {
     override fun toString(): String = "GoogleCredential(redacted)"
 }
@@ -48,10 +49,13 @@ internal class GoogleCredentialStore(context: Context) : GoogleAccountStore {
             val array = JSONArray(String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8))
             return (0 until array.length()).map { index ->
                 val item = array.getJSONObject(index)
+                val cooldownJson = item.optJSONObject("cooldowns")
+                val cooldowns = cooldownJson?.keys()?.asSequence()?.associateWith { cooldownJson?.optLong(it, 0) ?: 0L }.orEmpty()
                 GoogleCredential(
                     GoogleAccount(item.getString("id"), item.getString("email"), item.getString("name"),
-                        item.optBoolean("enabled", true), item.optBoolean("needsLogin", false)),
-                    item.getString("project"), item.getString("access"), item.getString("refresh"), item.getLong("expires")
+                        item.optBoolean("enabled", true), item.optBoolean("needsLogin", false),
+                        cooldownUntil = cooldowns.values.maxOrNull() ?: 0),
+                    item.getString("project"), item.getString("access"), item.getString("refresh"), item.getLong("expires"), cooldowns
                 )
             }
         } catch (error: Exception) {
@@ -74,6 +78,7 @@ internal class GoogleCredentialStore(context: Context) : GoogleAccountStore {
                 put("access", credential.accessToken)
                 put("refresh", credential.refreshToken)
                 put("expires", credential.expiresAt)
+                put("cooldowns", JSONObject(credential.cooldowns))
             }) }
             val plain = array.toString().toByteArray(Charsets.UTF_8)
             require(plain.size < MAX_BYTES - 32)

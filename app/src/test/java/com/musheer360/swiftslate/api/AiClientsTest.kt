@@ -96,4 +96,13 @@ class AiClientsTest {
         assertEquals(302, response.code)
         assertEquals(1, server.requestCount)
     }
+
+    @Test fun reasoningModelsCanExplicitlyRejectCustomTemperature() = runBlocking {
+        respond(400, """{"error":{"param":"temperature","message":"Only the default value is supported"}}""")
+        respond(200, completion)
+        val endpoint = server.url("/v1").toString().replace("localhost", "127.0.0.1")
+        assertTrue(OpenAICompatibleClient().generate("Fix", "input", "secret", "reasoning-model", 0.7, endpoint).isSuccess)
+        assertTrue(JSONObject(server.takeRequest().body!!.utf8()).has("temperature"))
+        assertFalse(JSONObject(server.takeRequest().body!!.utf8()).has("temperature"))
+    }
 }

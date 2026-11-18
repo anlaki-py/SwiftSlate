@@ -1,9 +1,8 @@
 package com.musheer360.swiftslate
 
-import com.musheer360.swiftslate.api.AiServices
-
 import android.app.Application
 import android.content.Context
+import com.musheer360.swiftslate.api.AiServices
 import com.musheer360.swiftslate.service.KeepAliveService
 import com.musheer360.swiftslate.service.NotificationHelper
 

@@ -60,7 +60,7 @@ class GoogleOAuthService : Service() {
                     services.activateGoogleProvider()
                 }
             } finally {
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                ServiceCompat.stopForeground(this@GoogleOAuthService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
         }

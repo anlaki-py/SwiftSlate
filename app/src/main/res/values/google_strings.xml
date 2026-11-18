@@ -50,4 +50,5 @@
     <string name="ai_error_keys_unavailable">All keys are invalid or temporarily rate limited. Check your keys or wait and try again.</string>
     <string name="ai_protocol_openai">OpenAI compatible</string>
     <string name="ai_protocol_gemini">Gemini API key</string>
+    <string name="ai_error_network">Could not reach the AI provider. Check your connection and try again.</string>
 </resources>

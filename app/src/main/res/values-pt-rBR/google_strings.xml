@@ -50,4 +50,5 @@
     <string name="ai_error_keys_unavailable">Todas as chaves são inválidas ou estão limitadas temporariamente. Verifique ou aguarde.</string>
     <string name="ai_protocol_openai">Compatível com OpenAI</string>
     <string name="ai_protocol_gemini">Chave de API Gemini</string>
+    <string name="ai_error_network">Não foi possível conectar ao provedor de IA. Verifique a conexão e tente novamente.</string>
 </resources>

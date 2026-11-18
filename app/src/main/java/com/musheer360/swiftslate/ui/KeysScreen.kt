@@ -1,15 +1,13 @@
 package com.musheer360.swiftslate.ui
 
-import com.musheer360.swiftslate.feature.google.ui.GoogleAccountCard
-
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -28,6 +26,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musheer360.swiftslate.R
+import com.musheer360.swiftslate.feature.google.ui.GoogleAccountCard
 import com.musheer360.swiftslate.ui.components.ScreenTitle
 import com.musheer360.swiftslate.ui.components.SectionHeader
 import com.musheer360.swiftslate.ui.components.SlateCard

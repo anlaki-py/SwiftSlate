@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,11 +19,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.musheer360.swiftslate.R
 import com.musheer360.swiftslate.service.AccessibilityHelper

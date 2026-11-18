@@ -50,4 +50,5 @@
     <string name="ai_error_keys_unavailable">Alle Schlüssel sind ungültig oder vorübergehend begrenzt. Prüfen Sie sie oder warten Sie.</string>
     <string name="ai_protocol_openai">OpenAI-kompatibel</string>
     <string name="ai_protocol_gemini">Gemini-API-Schlüssel</string>
+    <string name="ai_error_network">Der KI-Anbieter ist nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</string>
 </resources>
