@@ -132,7 +132,7 @@ fun DashboardScreen(vm: SwiftSlateViewModel) {
 
             if (state.activeProviderName != null) {
                 Text(
-                    text = stringResource(R.string.dashboard_provider_info, state.activeProviderName!!, state.keyCount),
+                    text = stringResource(if (state.usesGoogleAccounts) R.string.google_dashboard_info else R.string.dashboard_provider_info, state.activeProviderName!!, state.keyCount),
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )

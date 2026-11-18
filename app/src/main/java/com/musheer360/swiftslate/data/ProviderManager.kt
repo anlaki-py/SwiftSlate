@@ -3,6 +3,7 @@ package com.musheer360.swiftslate.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.musheer360.swiftslate.model.Provider
+import com.musheer360.swiftslate.model.ProviderProtocol
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -68,11 +69,12 @@ class ProviderManager(context: Context) {
      * @param endpoint OpenAI-compatible base URL.
      * @return The newly created [Provider].
      */
-    fun addProvider(name: String, endpoint: String): Provider {
+    fun addProvider(name: String, endpoint: String, protocol: ProviderProtocol = ProviderProtocol.OPENAI_COMPATIBLE): Provider {
         val provider = Provider(
             id = UUID.randomUUID().toString(),
             name = name.trim(),
-            endpoint = endpoint.trim().trimEnd('/')
+            endpoint = endpoint.trim().trimEnd('/'),
+            protocol = protocol
         )
         val providers = getProviders().toMutableList()
         providers.add(provider)
@@ -148,6 +150,7 @@ class ProviderManager(context: Context) {
                 put("name", p.name)
                 put("endpoint", p.endpoint)
                 put("selectedModel", p.selectedModel)
+                put("protocol", p.protocol.name)
             })
         }
         prefs.edit().putString(KEY_PROVIDERS, arr.toString()).apply()
@@ -164,7 +167,9 @@ class ProviderManager(context: Context) {
             id = obj.getString("id"),
             name = obj.getString("name"),
             endpoint = obj.getString("endpoint"),
-            selectedModel = obj.optString("selectedModel", "")
+            selectedModel = obj.optString("selectedModel", ""),
+            protocol = ProviderProtocol.entries.firstOrNull { it.name == obj.optString("protocol") }
+                ?: ProviderProtocol.OPENAI_COMPATIBLE
         )
     }
 }

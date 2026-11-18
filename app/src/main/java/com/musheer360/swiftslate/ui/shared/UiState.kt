@@ -1,5 +1,7 @@
 package com.musheer360.swiftslate.ui.shared
 
+import com.musheer360.swiftslate.model.ProviderProtocol
+
 import com.musheer360.swiftslate.model.Command
 
 data class DashboardUiState(
@@ -7,6 +9,7 @@ data class DashboardUiState(
     val isAccessibilityEnabled: Boolean = false,
     val activeProviderName: String? = null,
     val keyCount: Int = 0,
+    val usesGoogleAccounts: Boolean = false,
     val currentPrefix: String = "?",
     val isBatteryOptimized: Boolean = false
 )
@@ -24,7 +27,8 @@ data class KeysUiState(
     val isTesting: Boolean = false,
     val testResult: String? = null,
     val testSuccess: Boolean = false,
-    val keystoreAvailable: Boolean = true
+    val keystoreAvailable: Boolean = true,
+    val usesGoogleAccounts: Boolean = false
 )
 
 data class SettingsUiState(
@@ -40,5 +44,15 @@ data class SettingsUiState(
 
 data class SettingsProviderItem(
     val id: String,
-    val name: String
+    val name: String,
+    val endpoint: String,
+    val selectedModel: String,
+    val protocol: ProviderProtocol
+)
+
+data class ModelPickerUiState(
+    val providerId: String? = null,
+    val models: List<String> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

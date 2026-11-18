@@ -1,5 +1,7 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
+import com.musheer360.swiftslate.model.ProviderProtocol
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -26,10 +28,13 @@ import com.musheer360.swiftslate.ui.components.SlateTextField
 internal fun ProviderFormDialog(
     initialName: String = "",
     initialEndpoint: String = "",
+    initialProtocol: ProviderProtocol = ProviderProtocol.OPENAI_COMPATIBLE,
+    isEditing: Boolean = false,
     title: String,
-    onSave: (name: String, endpoint: String) -> Unit,
+    onSave: (name: String, endpoint: String, protocol: ProviderProtocol) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var protocol by remember { mutableStateOf(initialProtocol) }
     var name by remember { mutableStateOf(initialName) }
     var endpoint by remember { mutableStateOf(initialEndpoint) }
     var endpointError by remember { mutableStateOf<String?>(null) }
@@ -44,6 +49,18 @@ internal fun ProviderFormDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (!isEditing) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = protocol == ProviderProtocol.OPENAI_COMPATIBLE,
+                            onClick = { protocol = ProviderProtocol.OPENAI_COMPATIBLE },
+                            label = { Text(stringResource(R.string.ai_protocol_openai)) })
+                        FilterChip(selected = protocol == ProviderProtocol.GEMINI_API_KEY,
+                            onClick = {
+                                protocol = ProviderProtocol.GEMINI_API_KEY
+                                if (endpoint.isBlank()) endpoint = "https://generativelanguage.googleapis.com/v1beta"
+                            }, label = { Text(stringResource(R.string.ai_protocol_gemini)) })
+                    }
+                }
                 SlateTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -82,7 +99,7 @@ internal fun ProviderFormDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(name.trim(), endpoint.trim().trimEnd('/')) },
+                onClick = { onSave(name.trim(), endpoint.trim().trimEnd('/'), protocol) },
                 enabled = isValid
             ) {
                 Text(stringResource(R.string.commands_save_command))

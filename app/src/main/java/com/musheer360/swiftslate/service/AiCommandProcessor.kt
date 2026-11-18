@@ -1,13 +1,11 @@
 package com.musheer360.swiftslate.service
 
+import com.musheer360.swiftslate.SwiftSlateApp
+
 import android.content.Context
 import android.os.Handler
 import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityNodeInfo
-import com.musheer360.swiftslate.api.ApiError
-import com.musheer360.swiftslate.api.ApiException
-import com.musheer360.swiftslate.api.OpenAICompatibleClient
-import com.musheer360.swiftslate.data.KeyManager
 import com.musheer360.swiftslate.data.ProviderManager
 import com.musheer360.swiftslate.model.Command
 import com.musheer360.swiftslate.model.Provider
@@ -29,13 +27,10 @@ import kotlinx.coroutines.TimeoutCancellationException
  * multi-key rotation with automatic fallback on rate-limit or invalid-key errors,
  * and an inline progress spinner.
  *
- * All providers are user-defined and routed through [OpenAICompatibleClient]
- * using the standardised `/chat/completions` endpoint with strict structured output.
+ * Requests use the selected provider protocol, shared cancellable networking, and credential rotation.
  *
  * @param context Application context for reading SharedPreferences.
  * @param providerManager Provides the active user-defined provider.
- * @param keyManager Provides API keys and tracks rate-limit/invalid state.
- * @param openAIClient Unified client for all OpenAI-compatible APIs.
  * @param textReplacer Handles text replacement in accessibility nodes.
  * @param toastManager Displays overlay toast notifications.
  * @param serviceScope Coroutine scope tied to the service lifecycle.
@@ -44,16 +39,15 @@ import kotlinx.coroutines.TimeoutCancellationException
 class AiCommandProcessor(
     private val context: Context,
     private val providerManager: ProviderManager,
-    private val keyManager: KeyManager,
-    private val openAIClient: OpenAICompatibleClient,
     private val textReplacer: TextReplacer,
     private val toastManager: OverlayToastManager,
     private val serviceScope: CoroutineScope,
     private val handler: Handler
 ) {
 
+    private val requests = (context.applicationContext as SwiftSlateApp).aiServices.requests
+
     private companion object {
-        const val DEFAULT_TEMPERATURE = 0.7
         val SPINNER_FRAMES = arrayOf("◐", "◓", "◑", "◒")
     }
 
@@ -111,127 +105,62 @@ class AiCommandProcessor(
                 return@launch
             }
 
-            var spinnerJob: Job? = null
             val timeoutSecs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE).getFloat("timeout", 10f)
             
             try {
                 withTimeout((timeoutSecs * 1000).toLong()) {
-                    spinnerJob = executeWithKeyRotation(
+                    executeTransformation(
                         source, text, command, provider,
-                        temperature.toDouble(), callbacks, spinnerJob, thisJob
+                        temperature.toDouble(), callbacks, thisJob
                     )
                 }
             } catch (_: TimeoutCancellationException) {
-                spinnerJob?.cancelAndJoin()
                 try { textReplacer.replaceText(source, text) } catch (_: Exception) {}
                 toastManager.showToast("Request timed out")
             } catch (e: CancellationException) {
                 withContext(NonCancellable + Dispatchers.Main) {
-                    spinnerJob?.cancel()
                     try { textReplacer.replaceText(source, text) } catch (_: Exception) {}
                 }
                 throw e
             } catch (e: Exception) {
-                spinnerJob?.cancelAndJoin()
                 try { textReplacer.replaceText(source, text) } catch (_: Exception) {
                     toastManager.showToast("Could not restore original text")
                 }
-                toastManager.showToast(ErrorMessageMapper.map(e.message ?: "Unknown error"))
+                toastManager.showToast(ErrorMessageMapper.describe(context, e))
             } finally {
                 withContext(NonCancellable + Dispatchers.Main) {
                     callbacks.onProcessingComplete(thisJob)
-                    spinnerJob?.cancel()
                     try { source.recycle() } catch (_: Exception) {}
                 }
             }
         }
     }
 
-    /**
-     * Tries each available API key in turn, stopping on success or
-     * a non-retryable error.
-     */
-    private suspend fun executeWithKeyRotation(
+    /** Applies one transformation; the request router owns credentials and protocol selection. */
+    private suspend fun executeTransformation(
         source: AccessibilityNodeInfo,
         originalText: String,
         command: Command,
         provider: Provider,
         temperature: Double,
         callbacks: ProcessingCallbacks,
-        initialSpinnerJob: Job?,
         parentJobToCancel: Job?
-    ): Job? {
-        var spinnerJob = initialSpinnerJob
-        var lastErrorMsg: String? = null
-        var succeeded = false
-
-        val keyCount = keyManager.getKeys(provider.id).size.coerceAtLeast(1)
-        for (attempt in 0 until keyCount) {
-            val key = keyManager.getNextKey(provider.id) ?: break
-            if (spinnerJob == null) spinnerJob = startInlineSpinner(source, originalText, parentJobToCancel)
-
-            val result = openAIClient.generate(
-                prompt = command.prompt,
-                text = originalText,
-                apiKey = key,
-                model = provider.selectedModel,
-                temperature = temperature,
-                endpoint = provider.endpoint
-            )
-
-            if (result.isSuccess) {
-                spinnerJob?.cancelAndJoin(); spinnerJob = null
-                callbacks.onOriginalTextCaptured(originalText, sourceId(source))
-                val gen = result.getOrThrow()
-                textReplacer.replaceText(source, gen.text)
-                HapticHelper.performHapticFeedback(
-                    context, handler, HapticFeedbackConstants.CONFIRM
-                )
-                succeeded = true; break
-            }
-
-            lastErrorMsg = result.exceptionOrNull()?.message ?: ""
-            when ((result.exceptionOrNull() as? ApiException)?.apiError) {
-                is ApiError.RateLimit -> {
-                    val secs = (result.exceptionOrNull() as ApiException).apiError
-                        .let { (it as ApiError.RateLimit).retryAfterSeconds?.toLong() ?: 60 }
-                    keyManager.reportRateLimit(key, secs)
-                }
-                is ApiError.InvalidKey -> keyManager.markInvalid(key)
-                else -> break
-            }
-        }
-
-        if (!succeeded) {
-            spinnerJob?.cancelAndJoin(); spinnerJob = null
+    ) {
+        val spinnerJob = startInlineSpinner(source, originalText, parentJobToCancel)
+        try {
+            val generated = requests.generate(provider, command.prompt, originalText, temperature).getOrThrow()
+            spinnerJob.cancelAndJoin()
+            callbacks.onOriginalTextCaptured(originalText, sourceId(source))
+            textReplacer.replaceText(source, generated.text)
+            HapticHelper.performHapticFeedback(context, handler, HapticFeedbackConstants.CONFIRM)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            spinnerJob.cancelAndJoin()
             textReplacer.replaceText(source, originalText)
-            showFailureToast(provider.id, lastErrorMsg)
-        }
-        return spinnerJob
-    }
-
-    /**
-     * Shows an error toast using key-state context when no explicit
-     * error message exists.
-     *
-     * @param providerId The active provider's ID for key-state lookups.
-     * @param lastErrorMsg The last error message, or null.
-     */
-    private suspend fun showFailureToast(providerId: String, lastErrorMsg: String?) {
-        if (lastErrorMsg != null) {
-            toastManager.showToast(ErrorMessageMapper.map(lastErrorMsg))
-        } else {
-            val waitMs = keyManager.getShortestWaitTimeMs(providerId)
-            when {
-                waitMs != null -> {
-                    val waitSec = ((waitMs + 999) / 1000).coerceAtLeast(1)
-                    toastManager.showToast("API key rate limited. Try again in ${waitSec}s")
-                }
-                keyManager.getKeys(providerId).isEmpty() ->
-                    toastManager.showToast("No API keys configured for this provider")
-                else ->
-                    toastManager.showToast("All API keys are invalid. Please check your keys")
-            }
+            toastManager.showToast(ErrorMessageMapper.describe(context, error))
+        } finally {
+            spinnerJob.cancel()
         }
     }
 

@@ -41,28 +41,13 @@ object EndpointValidation {
     fun validate(url: String): EndpointValidationResult {
         if (url.isBlank()) return EndpointValidationResult.Valid
 
-        if (url.contains(" ")) {
-            return EndpointValidationResult.Error("spaces")
+        if (url.any { it.isWhitespace() }) return EndpointValidationResult.Error("spaces")
+        val parsed = try { java.net.URI(url) } catch (_: Exception) { null }
+        if (parsed?.host.isNullOrBlank() || parsed?.userInfo != null || parsed?.fragment != null || parsed?.query != null) {
+            return EndpointValidationResult.Error("scheme")
         }
-
-        if (url.startsWith("https://")) {
-            return EndpointValidationResult.Valid
-        }
-
-        if (url.startsWith("http://")) {
-            val host = try {
-                java.net.URL(url).host
-            } catch (_: Exception) {
-                ""
-            }
-            return if (host in LOCALHOST_HOSTS) {
-                EndpointValidationResult.Valid
-            } else {
-                EndpointValidationResult.Error("scheme")
-            }
-        }
-
-        return EndpointValidationResult.Error("scheme")
+        return if (parsed?.scheme == "https" || parsed?.scheme == "http" && parsed.host in LOCALHOST_HOSTS)
+            EndpointValidationResult.Valid else EndpointValidationResult.Error("scheme")
     }
 
     /**

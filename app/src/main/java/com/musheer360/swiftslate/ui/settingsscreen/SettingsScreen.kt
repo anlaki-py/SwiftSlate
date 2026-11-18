@@ -1,5 +1,7 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
+import com.musheer360.swiftslate.feature.google.ui.GoogleAccountCard
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +29,11 @@ fun SettingsScreen(vm: SwiftSlateViewModel) {
         SectionHeader(stringResource(R.string.settings_provider_title))
         ProviderCard(vm = vm)
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        GoogleAccountCard(onProvidersChanged = {
+            vm.refreshSettings(); vm.refreshKeys(); vm.refreshDashboard()
+        })
         Spacer(modifier = Modifier.height(12.dp))
 
         SectionHeader(stringResource(R.string.settings_trigger_prefix_title))

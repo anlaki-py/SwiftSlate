@@ -1,9 +1,12 @@
 package com.musheer360.swiftslate.ui
 
+import com.musheer360.swiftslate.feature.google.ui.GoogleAccountCard
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +40,17 @@ fun KeysScreen(vm: SwiftSlateViewModel) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val state by vm.keysState.collectAsState()
+
+    if (state.usesGoogleAccounts) {
+        Column(modifier = Modifier.fillMaxSize().padding(androidx.compose.ui.res.dimensionResource(R.dimen.google_screen_padding))
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            ScreenTitle(stringResource(R.string.google_accounts_title))
+            GoogleAccountCard(onProvidersChanged = {
+                vm.refreshSettings(); vm.refreshKeys(); vm.refreshDashboard()
+            })
+        }
+        return
+    }
 
     var newKey by remember { mutableStateOf("") }
     var keyToDelete by remember { mutableStateOf<String?>(null) }

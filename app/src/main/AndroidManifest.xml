@@ -55,6 +55,14 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <service
+            android:name=".feature.google.data.GoogleOAuthService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Temporary Google OAuth loopback callback while the user signs in with a browser" />
+        </service>
+
         <!-- Keep-alive foreground service — specialUse for API 34+ enforcement -->
         <service
             android:name=".service.KeepAliveService"

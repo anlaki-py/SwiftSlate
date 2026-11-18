@@ -1,5 +1,7 @@
 package com.musheer360.swiftslate.ui.settingsscreen
 
+import com.musheer360.swiftslate.model.ProviderProtocol
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,72 +28,26 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
     val haptic = LocalHapticFeedback.current
     val state by vm.settingsState.collectAsState()
 
-    var providers by remember { mutableStateOf(vm.settingsState.value.providers) }
-    var activeProvider by remember { mutableStateOf<Provider?>(null) }
+    val modelState by vm.modelState.collectAsState()
+    val providers = state.providers.map { Provider(it.id, it.name, it.endpoint, it.selectedModel, it.protocol) }
+    val activeProvider = providers.firstOrNull { it.id == state.activeProviderId }
     var providerExpanded by remember { mutableStateOf(false) }
-
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showModelPicker by remember { mutableStateOf(false) }
 
-    var fetchedModels by remember { mutableStateOf<List<String>>(emptyList()) }
-    var isLoadingModels by remember { mutableStateOf(false) }
-    var modelFetchError by remember { mutableStateOf<String?>(null) }
-
-    fun fetchModelsForProvider(provider: Provider) {
-        val key = vm.getNextKey(provider.id)
-        if (key == null) {
-            fetchedModels = emptyList()
-            modelFetchError = null
-            return
-        }
-        isLoadingModels = true
-        modelFetchError = null
-        vm.getFetchedModels(key, provider.endpoint) { result ->
-            isLoadingModels = false
-            if (result.isSuccess) {
-                fetchedModels = result.getOrDefault(emptyList())
-                modelFetchError = null
-            } else {
-                fetchedModels = emptyList()
-                modelFetchError = result.exceptionOrNull()?.message
-            }
-        }
-    }
-
-    // Sync local provider state from ViewModel
-    LaunchedEffect(
-        state.activeProviderId,
-        state.activeProviderName,
-        state.activeProviderEndpoint,
-        state.activeProviderModel,
-        state.providers
-    ) {
-        providers = state.providers
-        val currentActiveProviderId = state.activeProviderId
-        activeProvider = if (currentActiveProviderId != null) {
-            Provider(
-                id = currentActiveProviderId,
-                name = state.activeProviderName ?: "",
-                endpoint = state.activeProviderEndpoint,
-                selectedModel = state.activeProviderModel
-            )
-        } else null
-    }
-
     SlateCard {
         ProviderDropdown(
-            providers = providers.map { Provider(id = it.id, name = it.name, endpoint = "") },
+            providers = providers,
             activeProvider = activeProvider,
             expanded = providerExpanded,
             onExpandedChange = { providerExpanded = !providerExpanded },
             onProviderSelected = { provider ->
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 vm.setActiveProvider(provider.id)
-                activeProvider = provider
                 providerExpanded = false
-                fetchModelsForProvider(provider)
+                vm.fetchProviderModels(provider.id)
             },
             onAddClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -109,13 +65,15 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = activeProvider!!.endpoint,
+                    text = if (activeProvider.protocol == ProviderProtocol.GOOGLE_ACCOUNT)
+                        stringResource(R.string.google_provider_name) else activeProvider.endpoint,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(
                     onClick = { showEditDialog = true },
+                    enabled = activeProvider.protocol != ProviderProtocol.GOOGLE_ACCOUNT,
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.settings_edit_provider), modifier = Modifier.size(18.dp))
@@ -130,14 +88,14 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            val modelLabel = activeProvider!!.selectedModel.ifBlank {
+            val modelLabel = activeProvider.selectedModel.ifBlank {
                 stringResource(R.string.settings_select_model)
             }
-            val hasModel = activeProvider!!.selectedModel.isNotBlank()
+            val hasModel = activeProvider.selectedModel.isNotBlank()
             Surface(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    fetchModelsForProvider(activeProvider!!)
+                    vm.fetchProviderModels(activeProvider.id)
                     showModelPicker = true
                 },
                 shape = RoundedCornerShape(10.dp),
@@ -178,8 +136,8 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
     if (showAddDialog) {
         ProviderFormDialog(
             title = stringResource(R.string.settings_add_provider),
-            onSave = { name, endpoint ->
-                vm.addProvider(name, endpoint)
+            onSave = { name, endpoint, protocol ->
+                vm.addProvider(name, endpoint, protocol)
                 showAddDialog = false
             },
             onDismiss = { showAddDialog = false }
@@ -188,11 +146,13 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
 
     if (showEditDialog && activeProvider != null) {
         ProviderFormDialog(
-            initialName = activeProvider!!.name,
-            initialEndpoint = activeProvider!!.endpoint,
+            initialName = activeProvider.name,
+            initialEndpoint = activeProvider.endpoint,
             title = stringResource(R.string.settings_edit_provider),
-            onSave = { name, endpoint ->
-                vm.updateProvider(activeProvider!!.id, name = name, endpoint = endpoint)
+            initialProtocol = activeProvider.protocol,
+            isEditing = true,
+            onSave = { name, endpoint, _ ->
+                vm.updateProvider(activeProvider.id, name = name, endpoint = endpoint)
                 showEditDialog = false
             },
             onDismiss = { showEditDialog = false }
@@ -207,7 +167,7 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
             confirmButton = {
                 TextButton(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    vm.removeProvider(activeProvider!!.id)
+                    vm.removeProvider(activeProvider.id)
                     showDeleteConfirm = false
                 }) {
                     Text(stringResource(R.string.delete_confirm_button), color = MaterialTheme.colorScheme.error)
@@ -222,19 +182,15 @@ internal fun ProviderCard(vm: SwiftSlateViewModel) {
     }
 
     if (showModelPicker && activeProvider != null) {
-        val noKeysMsg = if (vm.getKeys(activeProvider!!.id).isEmpty()) {
-            stringResource(R.string.settings_models_no_keys)
-        } else null
 
         ModelPickerSheet(
-            models = fetchedModels,
-            selectedModel = activeProvider!!.selectedModel,
-            isLoading = isLoadingModels,
-            errorMessage = noKeysMsg ?: modelFetchError,
+            models = if (modelState.providerId == activeProvider.id) modelState.models else emptyList(),
+            selectedModel = activeProvider.selectedModel,
+            isLoading = modelState.isLoading,
+            errorMessage = modelState.error,
             onModelSelected = { model ->
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                val currentProvider = activeProvider!!
-                activeProvider = currentProvider.copy(selectedModel = model)
+                val currentProvider = activeProvider
                 vm.updateProvider(currentProvider.id, selectedModel = model)
                 showModelPicker = false
             },

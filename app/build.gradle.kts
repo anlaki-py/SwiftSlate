@@ -5,6 +5,10 @@ plugins {
 
 val baseVersion = "1.0"
 
+// Installed-app OAuth values are injected into release builds, never stored in git.
+fun oauthBuildValue(name: String): String = "\"" + (System.getenv(name) ?: "")
+    .replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 android {
     namespace = "com.musheer360.swiftslate"
     compileSdk = 36
@@ -15,6 +19,9 @@ android {
         targetSdk = 36
         versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
         versionName = (project.findProperty("versionName") as String?) ?: "$baseVersion-dev"
+
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", oauthBuildValue("GOOGLE_OAUTH_CLIENT_ID"))
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_SECRET", oauthBuildValue("GOOGLE_OAUTH_CLIENT_SECRET"))
 
         resourceConfigurations += setOf("en", "fr", "zh-rCN", "hi", "de", "es", "pt-rBR")
     }
@@ -77,6 +84,9 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver3:5.5.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")

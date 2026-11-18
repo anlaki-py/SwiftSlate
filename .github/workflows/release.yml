@@ -6,6 +6,10 @@ on:
         type: string
         required: true
     secrets:
+      GOOGLE_OAUTH_CLIENT_ID:
+        required: true
+      GOOGLE_OAUTH_CLIENT_SECRET:
+        required: true
       KEYSTORE_BASE64:
         required: true
       KEYSTORE_PASSWORD:
@@ -71,13 +75,17 @@ jobs:
           test -s "$RUNNER_TEMP/release.keystore"
       - name: Build signed universal release APK
         env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           VERSION_NAME: ${{ steps.plan.outputs.version_name }}
           VERSION_CODE: ${{ steps.plan.outputs.version_code }}
-        run: ./gradlew assembleRelease --no-daemon --no-configuration-cache -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
+        run: |
+          test -n "$GOOGLE_OAUTH_CLIENT_ID" && test -n "$GOOGLE_OAUTH_CLIENT_SECRET" || { echo '::error::Google OAuth build configuration is missing'; exit 1; }
+          ./gradlew assembleRelease --no-daemon --no-configuration-cache -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
       - name: Remove keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/release.keystore"

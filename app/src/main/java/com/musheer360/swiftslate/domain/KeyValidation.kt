@@ -21,7 +21,7 @@ sealed class KeyValidationResult {
      *
      * @param message Error message from the provider or a fallback.
      */
-    data class Invalid(val message: String) : KeyValidationResult()
+    data class Invalid(val message: String, val cause: Throwable? = null) : KeyValidationResult()
 }
 
 /**
@@ -58,7 +58,7 @@ object KeyValidation {
             KeyValidationResult.Valid
         } else {
             KeyValidationResult.Invalid(
-                result.exceptionOrNull()?.message ?: fallbackErrorMessage
+                result.exceptionOrNull()?.message ?: fallbackErrorMessage, result.exceptionOrNull()
             )
         }
     }

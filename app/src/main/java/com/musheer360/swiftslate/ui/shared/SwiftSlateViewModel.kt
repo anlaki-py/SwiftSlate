@@ -1,5 +1,10 @@
 package com.musheer360.swiftslate.ui.shared
 
+import com.musheer360.swiftslate.SwiftSlateApp
+import com.musheer360.swiftslate.model.ProviderProtocol
+import com.musheer360.swiftslate.service.ErrorMessageMapper
+import com.musheer360.swiftslate.domain.KeyValidationResult
+
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
@@ -35,7 +40,11 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
     private val commandManager = CommandManager(application)
     private val providerManager = ProviderManager(application)
 
-    private val openAIClient = OpenAICompatibleClient()
+    private val services = (application as SwiftSlateApp).aiServices
+    private val openAIClient = services.openAi
+    private var modelJob: kotlinx.coroutines.Job? = null
+    private val _modelState = MutableStateFlow(ModelPickerUiState())
+    val modelState = _modelState.asStateFlow()
 
     private val _dashboardState = MutableStateFlow(DashboardUiState())
     val dashboardState: StateFlow<DashboardUiState> = _dashboardState.asStateFlow()
@@ -59,13 +68,16 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
     // -- Dashboard --
 
     fun refreshDashboard() {
+        val provider = providerManager.getActiveProvider()
         val app = getApplication<Application>()
         val isAccessibilityEnabled = AccessibilityHelper.isServiceEnabled(app)
         _dashboardState.value = DashboardUiState(
             isServiceEnabled = isAccessibilityEnabled && AssistantService.isProcessingEnabled(app),
             isAccessibilityEnabled = isAccessibilityEnabled,
             activeProviderName = providerManager.getActiveProvider()?.name,
-            keyCount = providerManager.getActiveProvider()?.let { keyManager.getKeys(it.id).size } ?: 0,
+            keyCount = if (provider?.protocol == ProviderProtocol.GOOGLE_ACCOUNT)
+                services.accounts.accounts.value.size else provider?.let { keyManager.getKeys(it.id).size } ?: 0,
+            usesGoogleAccounts = provider?.protocol == ProviderProtocol.GOOGLE_ACCOUNT,
             currentPrefix = commandManager.getTriggerPrefix(),
             isBatteryOptimized = !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(app)
         )
@@ -155,7 +167,8 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
             providerName = provider.name,
             providerEndpoint = provider.endpoint,
             keys = keyManager.getKeys(provider.id),
-            keystoreAvailable = keyManager.keystoreAvailable
+            keystoreAvailable = keyManager.keystoreAvailable,
+            usesGoogleAccounts = provider.protocol == ProviderProtocol.GOOGLE_ACCOUNT
         )
     }
 
@@ -165,7 +178,15 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
         val existingKeys = keyManager.getKeys(providerId)
 
         viewModelScope.launch {
-            val result = KeyValidation.validate(
+            val native = providerManager.getProviders().firstOrNull { it.id == providerId }?.protocol ==
+                ProviderProtocol.GEMINI_API_KEY
+            val result = if (native) {
+                if (trimmedKey in existingKeys) KeyValidationResult.Duplicate
+                else services.gemini.models(trimmedKey, _keysState.value.providerEndpoint).fold(
+                    { KeyValidationResult.Valid },
+                    { KeyValidationResult.Invalid(
+                        ErrorMessageMapper.describe(getApplication(), it)) })
+            } else KeyValidation.validate(
                 key = trimmedKey,
                 endpoint = _keysState.value.providerEndpoint,
                 existingKeys = existingKeys,
@@ -173,21 +194,21 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
                 fallbackErrorMessage = "Validation failed"
             )
             when (result) {
-                is com.musheer360.swiftslate.domain.KeyValidationResult.Duplicate -> {
+                is KeyValidationResult.Duplicate -> {
                     _keysState.value = _keysState.value.copy(
                         isTesting = false,
                         testResult = "Key already added",
                         testSuccess = false
                     )
                 }
-                is com.musheer360.swiftslate.domain.KeyValidationResult.Invalid -> {
+                is KeyValidationResult.Invalid -> {
                     _keysState.value = _keysState.value.copy(
                         isTesting = false,
-                        testResult = result.message,
+                        testResult = result.cause?.let { ErrorMessageMapper.describe(getApplication(), it) } ?: result.message,
                         testSuccess = false
                     )
                 }
-                is com.musheer360.swiftslate.domain.KeyValidationResult.Valid -> {
+                is KeyValidationResult.Valid -> {
                     if (!keyManager.addKey(providerId, trimmedKey)) {
                         _keysState.value = _keysState.value.copy(
                             isTesting = false,
@@ -228,7 +249,7 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
         val providers = providerManager.getProviders()
         val active = providerManager.getActiveProvider()
         _settingsState.value = SettingsUiState(
-            providers = providers.map { SettingsProviderItem(it.id, it.name) },
+            providers = providers.map { SettingsProviderItem(it.id, it.name, it.endpoint, it.selectedModel, it.protocol) },
             activeProviderId = active?.id,
             activeProviderName = active?.name,
             activeProviderEndpoint = active?.endpoint ?: "",
@@ -249,8 +270,8 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
         _settingsState.value = _settingsState.value.copy(timeout = value)
     }
 
-    fun addProvider(name: String, endpoint: String): Provider {
-        val provider = providerManager.addProvider(name, endpoint)
+    fun addProvider(name: String, endpoint: String, protocol: ProviderProtocol = ProviderProtocol.OPENAI_COMPATIBLE): Provider {
+        val provider = providerManager.addProvider(name, endpoint, protocol)
         refreshSettings()
         refreshKeys()
         return provider
@@ -277,17 +298,16 @@ class SwiftSlateViewModel(application: Application) : AndroidViewModel(applicati
         refreshKeys()
     }
 
-    fun getFetchedModels(apiKey: String, endpoint: String, onResult: (Result<List<String>>) -> Unit) {
-        viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                com.musheer360.swiftslate.api.ModelFetcher.fetchModels(apiKey, endpoint)
-            }
-            onResult(result)
+    fun fetchProviderModels(providerId: String) {
+        val provider = providerManager.getProviders().firstOrNull { it.id == providerId } ?: return
+        modelJob?.cancel()
+        _modelState.value = ModelPickerUiState(providerId, isLoading = true)
+        modelJob = viewModelScope.launch {
+            val response = services.requests.models(provider)
+            _modelState.value = ModelPickerUiState(providerId, models = response.getOrDefault(emptyList()),
+                error = response.exceptionOrNull()?.let { ErrorMessageMapper.describe(getApplication(), it) })
         }
     }
-
-    fun getNextKey(providerId: String): String? = keyManager.getNextKey(providerId)
-    fun getKeys(providerId: String): List<String> = keyManager.getKeys(providerId)
 
     fun setTriggerPrefix(newPrefix: String): Boolean {
         val result = commandManager.setTriggerPrefix(newPrefix)

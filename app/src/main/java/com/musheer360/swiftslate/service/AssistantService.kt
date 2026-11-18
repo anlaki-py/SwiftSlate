@@ -1,5 +1,7 @@
 package com.musheer360.swiftslate.service
 
+import com.musheer360.swiftslate.model.ProviderProtocol
+
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.os.Handler
@@ -8,7 +10,6 @@ import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
-import com.musheer360.swiftslate.api.OpenAICompatibleClient
 import com.musheer360.swiftslate.data.CommandManager
 import com.musheer360.swiftslate.data.KeyManager
 import com.musheer360.swiftslate.data.ProviderManager
@@ -91,8 +92,7 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
         textReplacer = TextReplacer(applicationContext, handler)
         toastManager = OverlayToastManager(applicationContext, handler)
         aiCommandProcessor = AiCommandProcessor(
-            applicationContext, providerManager, keyManager,
-            OpenAICompatibleClient(), textReplacer, toastManager,
+            applicationContext, providerManager, textReplacer, toastManager,
             serviceScope, handler
         )
         updateTriggers()
@@ -233,7 +233,8 @@ class AssistantService : AccessibilityService(), ProcessingCallbacks {
 
     /** Validates preconditions then delegates to [AiCommandProcessor]. */
     private fun handleAiCommand(source: AccessibilityNodeInfo, cleanText: String, command: Command, oldJob: Job) {
-        if (!keyManager.keystoreAvailable) {
+        if (!keyManager.keystoreAvailable && providerManager.getActiveProvider()?.protocol !=
+            ProviderProtocol.GOOGLE_ACCOUNT) {
             handler.post {
                 Toast.makeText(applicationContext, "Secure key storage unavailable. Please reinstall the app.", Toast.LENGTH_LONG).show()
             }

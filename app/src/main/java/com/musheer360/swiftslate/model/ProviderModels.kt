@@ -12,5 +12,9 @@ data class Provider(
     val id: String,
     val name: String,
     val endpoint: String,
-    val selectedModel: String = ""
+    val selectedModel: String = "",
+    val protocol: ProviderProtocol = ProviderProtocol.OPENAI_COMPATIBLE
 )
+
+/** Authentication and wire protocol; old saved providers default to OpenAI compatibility. */
+enum class ProviderProtocol { OPENAI_COMPATIBLE, GEMINI_API_KEY, GOOGLE_ACCOUNT }
