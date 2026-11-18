@@ -14,7 +14,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
  */
 class OpenAICompatibleClient(private val http: AiHttpTransport = AiHttpTransport()) {
     private val formats = ConcurrentHashMap<String, Int>()
-    private val defaultTemperatureOnly = ConcurrentHashMap.newKeySet<String>()
+    private val defaultTemperatureOnly: MutableSet<String> =
+        java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
 
     suspend fun validateKey(apiKey: String, endpoint: String): Result<String> =
         fetchModels(apiKey, endpoint).map { "Valid" }
