@@ -31,14 +31,14 @@ class GoogleAccountRepository internal constructor(
 
     suspend fun load() = withContext(Dispatchers.IO) { mutex.withLock { loadLocked() } }
 
-    internal suspend fun saveLogin(token: JSONObject): GoogleAccount {
+    internal suspend fun saveLogin(token: JSONObject) {
         val credential = api.credential(token)
         mutate { current ->
             val previous = current.firstOrNull { it.account.id == credential.account.id }
             current.filterNot { it.account.id == credential.account.id } +
-                credential.copy(account = credential.account.copy(isEnabled = previous?.account?.isEnabled ?: true))
+                credential.copy(account = credential.account.copy(isEnabled = previous?.account?.isEnabled ?: true,
+                    cooldownUntil = previous?.account?.cooldownUntil ?: 0), cooldowns = previous?.cooldowns.orEmpty())
         }
-        return credential.account
     }
 
     suspend fun setEnabled(id: String, enabled: Boolean) = update(id) { it.copy(account = it.account.copy(isEnabled = enabled)) }
@@ -75,19 +75,24 @@ class GoogleAccountRepository internal constructor(
                 }
             } } ?: return@repeat
             attempted.add(candidate.id)
+            var usedAccessToken: String? = null
             try {
                 var credential = fresh(candidate.id)
+                usedAccessToken = credential.accessToken
                 try {
                     return block(credential)
                 } catch (error: GoogleException) {
                     if (error.status != 401) throw error
                     credential = fresh(candidate.id, force = true, rejectedAccessToken = credential.accessToken)
+                    usedAccessToken = credential.accessToken
                     return block(credential)
                 }
             } catch (error: GoogleException) {
                 lastFailure = error
                 when (error.failure) {
-                    GoogleFailure.LOGIN_REQUIRED -> update(candidate.id) { it.copy(account = it.account.copy(needsLogin = true)) }
+                    GoogleFailure.LOGIN_REQUIRED -> update(candidate.id) {
+                        if (usedAccessToken != null && it.accessToken == usedAccessToken) it.copy(account = it.account.copy(needsLogin = true)) else it
+                    }
                     GoogleFailure.RATE_LIMITED -> update(candidate.id) {
                         val until = System.currentTimeMillis() + error.retryAfterMillis
                         it.copy(cooldowns = it.cooldowns.filterValues { expiry -> expiry > System.currentTimeMillis() } + (modelScope to until),
@@ -121,10 +126,26 @@ class GoogleAccountRepository internal constructor(
             if (!force && current.expiresAt > System.currentTimeMillis() + 60_000) return@withLock current
             try {
                 val refreshed = api.refresh(current)
-                update(id) { refreshed.copy(account = refreshed.account.copy(isEnabled = it.account.isEnabled)) }
-                refreshed
+                var merged: GoogleCredential? = null
+                update(id) { latest ->
+                    val updated = if (latest.accessToken != current.accessToken || latest.refreshToken != current.refreshToken) latest
+                    else latest.copy(accessToken = refreshed.accessToken, refreshToken = refreshed.refreshToken,
+                        expiresAt = refreshed.expiresAt, account = latest.account.copy(needsLogin = false))
+                    merged = updated
+                    updated
+                }
+                merged ?: throw GoogleException(GoogleFailure.NO_ACCOUNTS)
             } catch (error: GoogleException) {
-                if (error.failure == GoogleFailure.LOGIN_REQUIRED) update(id) { it.copy(account = it.account.copy(needsLogin = true)) }
+                if (error.failure == GoogleFailure.LOGIN_REQUIRED) {
+                    var replacement: GoogleCredential? = null
+                    update(id) { latest ->
+                        if (latest.accessToken != current.accessToken || latest.refreshToken != current.refreshToken) {
+                            replacement = latest
+                            latest
+                        } else latest.copy(account = latest.account.copy(needsLogin = true))
+                    }
+                    replacement?.let { return@withLock it }
+                }
                 throw error
             }
         }

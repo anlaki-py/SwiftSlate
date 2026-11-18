@@ -21,8 +21,6 @@ Release notes are maintained here. Beta releases read `Unreleased`; stable relea
 - Negotiate structured output and reasoning-model temperature support only after explicit parameter errors, with no automatic replay of uncertain generation requests.
 - Keep Google credentials encrypted on the device and excluded from backups; browser login uses PKCE and a temporary foreground callback service.
 
-### Changed
-
 - Replaced automatic APK publishing with owner-dispatched beta and stable release workflows.
 - Added release APK identity checks, checksums, and downloadable release metadata.
 - Removed the debug signing fallback from release builds.

@@ -32,10 +32,12 @@ class GoogleAccountRepositoryTest {
         GoogleCredential(GoogleAccount(id, "$id@example.com", id), "project", "access-$id", "refresh-$id", expires)
     private class Store(var saved: List<GoogleCredential>) : GoogleAccountStore {
         var failWrite = false
+        var onWrite: (() -> Unit)? = null
         override fun read() = saved
         override fun write(accounts: List<GoogleCredential>) {
             if (failWrite) throw GoogleException(GoogleFailure.STORAGE)
             saved = accounts
+            onWrite?.invoke()
         }
     }
     private fun repository(store: Store): GoogleAccountRepository {
@@ -104,5 +106,55 @@ class GoogleAccountRepositoryTest {
         try { reloaded.generate("gemini-pro", "Fix", "input", 0.7); fail("Cooldown lost on reload") }
         catch (error: GoogleException) { assertEquals(GoogleFailure.RATE_LIMITED, error.failure) }
         assertEquals(2, server.requestCount)
+    }
+
+    @Test fun signingInAgainPreservesDisablementAndModelCooldowns() = runBlocking {
+        val previous = credential("one").copy(account = credential("one").account.copy(isEnabled = false),
+            cooldowns = mapOf("gemini-pro" to System.currentTimeMillis() + 60000))
+        val store = Store(listOf(previous))
+        val repository = repository(store)
+        respond(200, """{"id":"one","email":"one@example.com","name":"One"}""")
+        respond(200, """{"cloudaicompanionProject":{"id":"project"}}""")
+        repository.saveLogin(org.json.JSONObject("""{"access_token":"new","refresh_token":"renewed","expires_in":3600}"""))
+        assertFalse(repository.accounts.value.single().isEnabled)
+        assertEquals(previous.cooldowns, store.saved.single().cooldowns)
+        assertEquals("renewed", store.saved.single().refreshToken)
+    }
+
+    @Test fun refreshingTokensCannotOverwriteANewerQuotaUpdate() = runBlocking {
+        val generationStarted = java.util.concurrent.CountDownLatch(1)
+        val refreshStarted = java.util.concurrent.CountDownLatch(1)
+        val quotaSaved = java.util.concurrent.CountDownLatch(1)
+        val store = Store(listOf(credential("one")))
+        store.onWrite = { if (store.saved.single().cooldowns.containsKey("gemini-pro")) quotaSaved.countDown() }
+        server.dispatcher = object : mockwebserver3.Dispatcher() {
+            override fun dispatch(request: mockwebserver3.RecordedRequest): MockResponse {
+                return when (request.url.encodedPath) {
+                    "/v1internal:streamGenerateContent" -> {
+                        generationStarted.countDown()
+                        check(refreshStarted.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                        MockResponse.Builder().code(429).body("{}").build()
+                    }
+                    "/token" -> {
+                        refreshStarted.countDown()
+                        check(quotaSaved.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                        MockResponse.Builder().body("""{"access_token":"renewed","expires_in":3600}""").build()
+                    }
+                    else -> MockResponse.Builder().body("""{"models":{"gemini-pro":{}}}""").build()
+                }
+            }
+        }
+        val repository = repository(store)
+        val generation = async {
+            try { repository.generate("gemini-pro", "Fix", "input", 0.7); fail("Rate limit ignored") }
+            catch (error: GoogleException) { assertEquals(GoogleFailure.RATE_LIMITED, error.failure) }
+        }
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            assertTrue(generationStarted.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        }
+        repository.refreshAccount("one")
+        generation.await()
+        assertTrue(store.saved.single().cooldowns.containsKey("gemini-pro"))
+        assertEquals("renewed", store.saved.single().accessToken)
     }
 }
